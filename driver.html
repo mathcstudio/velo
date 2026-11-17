@@ -1,0 +1,517 @@
+<title>수직선 드라이버</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 왼쪽은 수직선(트랙)과 v-t 그래프를 위아래로, 오른쪽은 미션·계기판·버튼. 좁은 화면에서는 한 열로 쌓임 */
+:root{
+  --bg:#E9EEF2; --panel:#FFFFFF; --ink:#14212C; --muted:#5A6A78; --line:#D2DBE3; --grid:#E6ECF1;
+  --accent:#F0A114; --accent-ink:#2B1D00; --pos:#0F8F6B; --neg:#D2483F; --ok:#0F8F6B; --bad:#D2483F;
+  --f-display:"Do Hyeon","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E151B; --panel:#16202A; --ink:#E4ECF2; --muted:#93A3B0; --line:#293744; --grid:#1D2934;
+  --accent:#FFB935; --accent-ink:#2B1D00; --pos:#2DC898; --neg:#FF6A5F; --ok:#2DC898; --bad:#FF6A5F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E151B; --panel:#16202A; --ink:#E4ECF2; --muted:#93A3B0; --line:#293744; --grid:#1D2934;
+  --accent:#FFB935; --accent-ink:#2B1D00; --pos:#2DC898; --neg:#FF6A5F; --ok:#2DC898; --bad:#FF6A5F; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.app{max-width:1280px;margin:0 auto;padding-block:16px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:46px;height:46px;border-radius:12px;background:var(--ink);color:var(--accent);display:grid;place-items:center;font:600 28px/1 var(--f-mono)}
+h1{font:400 30px/1.1 var(--f-display);margin:0;letter-spacing:.5px}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.stages{display:flex;flex-wrap:wrap;gap:10px 18px}
+.sgroup{display:flex;align-items:center;gap:6px}
+.sname{font:400 15px var(--f-display);color:var(--muted);margin-right:4px;letter-spacing:.3px}
+.mbtn{min-width:44px;height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink);font:600 15px var(--f-mono);cursor:pointer;position:relative}
+.mbtn[aria-current="true"]{border-color:var(--ink);background:var(--ink);color:var(--panel)}
+.mbtn.cleared::after{content:"";position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--ok);border:2px solid var(--bg)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+@media (max-width:920px){.grid{display:flex;flex-direction:column}.main,.side{display:contents}.mission{order:-1}}
+.main,.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.label{font-weight:700;font-size:14px}
+.label small{font-weight:400;color:var(--muted);margin-left:6px}
+.time{font:600 15px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+canvas{display:block;width:100%;touch-action:none;border-radius:8px}
+canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#track{height:180px}
+#graph{height:clamp(280px,46vh,440px)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--muted);font-size:13px;margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:3px;display:inline-block}
+.sw.pos{background:var(--pos)} .sw.neg{background:var(--neg)}
+.chip{border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:6px 14px;font:500 13px var(--f-body);cursor:pointer;min-height:36px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.eyebrow{font:600 12px var(--f-mono);letter-spacing:1.2px;color:var(--muted);text-transform:uppercase}
+.mission h2{font:400 26px/1.2 var(--f-display);margin:4px 0 6px;text-wrap:balance}
+.mission p{margin:0 0 10px}
+.goals{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.goals li{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:8px;background:var(--grid);font-size:14px}
+.goals li .mk{font:600 14px var(--f-mono);width:18px;flex:none;text-align:center}
+.goals li.ok{color:var(--ok)} .goals li.bad{color:var(--bad)}
+.tip{margin-top:10px;font-size:13px;color:var(--muted);border-left:3px solid var(--accent);padding-left:10px}
+.meter{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.meter:last-child{border-bottom:0}
+.meter .k{font-size:13px;color:var(--muted)}
+.meter .k b{color:var(--ink);font-weight:700}
+.meter .val{font:600 24px var(--f-mono);font-variant-numeric:tabular-nums}
+.bar{grid-column:1/-1;height:10px;border-radius:5px;background:var(--grid);position:relative;overflow:hidden;margin-top:4px}
+.bar i{position:absolute;top:0;bottom:0;border-radius:5px}
+.bar .mid{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--muted)}
+.actions{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+button.primary,button.ghost{height:56px;border-radius:12px;font:400 22px var(--f-display);cursor:pointer;letter-spacing:.5px}
+button.primary{background:var(--accent);color:var(--accent-ink);border:0}
+button.primary:disabled{opacity:.5;cursor:default}
+button.ghost{background:var(--panel);color:var(--ink);border:1.5px solid var(--line)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.result{border-width:2px}
+.result.ok{border-color:var(--ok)} .result.bad{border-color:var(--bad)}
+.res-head{font:400 26px var(--f-display)}
+.result.ok .res-head{color:var(--ok)} .result.bad .res-head{color:var(--bad)}
+.result p{margin:4px 0 10px}
+.eq{font:500 14px/1.7 var(--f-mono);background:var(--grid);border-radius:8px;padding:8px 10px;margin-bottom:8px;overflow-x:auto;font-variant-numeric:tabular-nums}
+.eq .p{color:var(--pos);font-weight:600} .eq .n{color:var(--neg);font-weight:600}
+.eq .cap{font-family:var(--f-body);font-size:12px;color:var(--muted);display:block}
+.result button{margin-top:6px;width:100%}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">∫</div>
+      <div><h1>수직선 드라이버</h1><p>속도 그래프를 설계해서 점 P를 목적지로 보내세요</p></div>
+    </div>
+    <nav class="stages" id="stages" aria-label="미션 선택"></nav>
+  </header>
+
+  <div class="grid">
+    <section class="main">
+      <div class="card">
+        <div class="card-head"><span class="label">수직선 위를 움직이는 점 P</span><span class="time" id="timeLbl">t = 0.00</span></div>
+        <canvas id="track" aria-label="수직선 위 점 P의 움직임"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <span class="label">속도 그래프 v(t)<small>점을 위아래로 끌어서 설계 (0.5 단위)</small></span>
+          <button class="chip" id="hintBtn" aria-pressed="false">넓이 값 보기</button>
+        </div>
+        <canvas id="graph" tabindex="0" aria-label="속도 그래프 편집기. 좌우 화살표로 점 선택, 위아래 화살표로 값 조절"></canvas>
+        <div class="legend">
+          <span><i class="sw pos"></i>v &gt; 0 : 오른쪽으로 이동 (넓이 +)</span>
+          <span><i class="sw neg"></i>v &lt; 0 : 왼쪽으로 이동 (넓이 −)</span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="card mission">
+        <div class="eyebrow" id="mEyebrow"></div>
+        <h2 id="mTitle"></h2>
+        <p id="mDesc"></p>
+        <ul class="goals" id="mGoals"></ul>
+        <div class="tip" id="mTip"></div>
+      </div>
+
+      <div class="card">
+        <div class="meter">
+          <span class="k">현재 위치 <b>x(t)</b></span><span class="val" id="mX">0</span>
+        </div>
+        <div class="meter">
+          <span class="k">위치의 변화량 <b>∫ v(t) dt</b></span><span class="val" id="mD">0</span>
+          <div class="bar"><span class="mid"></span><i id="bD"></i></div>
+        </div>
+        <div class="meter">
+          <span class="k" id="kS">움직인 거리 <b>∫ |v(t)| dt</b></span><span class="val" id="mS">0</span>
+          <div class="bar" id="fuelBar"><i id="bS"></i></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="runBtn">▶ 출발</button>
+        <button class="ghost" id="resetBtn">처음으로</button>
+      </div>
+
+      <div class="card result" id="result" hidden></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+const T = 6, VMAX = 4, STEP = 0.5, TOL = 0.25, XR = 10;
+
+const MISSIONS = [
+  {stage:2,n:1,title:'목적지까지 달려라',x0:0,target:6,
+   desc:'점 P는 x = 0에서 출발해요. t = 6일 때 정확히 x = 6에 도착하도록 속도 그래프를 설계하세요.',
+   tip:'위치의 변화량은 속도 그래프와 t축 사이의 넓이와 같아요.',init:[1,2,2,1,0,0,0]},
+  {stage:2,n:2,title:'왼쪽으로 후진',x0:2,target:-4,
+   desc:'x = 2에서 출발해서 t = 6에 x = −4에 도착하세요.',
+   tip:'왼쪽으로 가려면 v(t) < 0, 즉 t축 아래쪽 넓이가 필요해요. 위치의 변화량은 몇이어야 할까요?',init:[0,-1,-1,-1,0,0,0]},
+  {stage:2,n:3,title:'갔다가 돌아오기',x0:0,target:3,
+   desc:'0 ≤ t ≤ 3에서는 오른쪽으로, 3 ≤ t ≤ 6에서는 왼쪽으로 움직여서 t = 6에 x = 3에 도착하세요.',
+   tip:'초록 넓이(오른쪽 이동)에서 빨강 넓이(왼쪽 이동)를 빼면 위치의 변화량이에요.',
+   cond:{label:'0≤t≤3에서 v ≥ 0, 3≤t≤6에서 v ≤ 0',fn:(v)=>v.slice(0,4).every(a=>a>=0)&&v.slice(3).every(a=>a<=0)},
+   init:[2,2,2,0,0,0,0]},
+  {stage:2,n:4,title:'제자리 왕복',x0:1,target:1,
+   desc:'x = 1에서 출발해서 x = 5 이상까지 갔다가, t = 6에 다시 x = 1로 돌아오세요.',
+   tip:'위치의 변화량이 0이 되려면 초록 넓이와 빨강 넓이가 같아야 해요.',
+   cond:{label:'한 번은 x ≥ 5에 도달',fn:(v,info)=>info.xmax>=5-1e-9},
+   init:[1,1,1,1,1,1,1]},
+  {stage:3,n:1,title:'연료 딱 맞추기',x0:0,target:4,fuel:4,
+   desc:'연료는 움직인 거리만큼 줄어들어요. 연료 4를 정확히 다 쓰고 x = 4에 도착하세요.',
+   tip:'방향을 바꾸지 않으면 움직인 거리 = |위치의 변화량| 이에요.',init:[2,2,1,0,-1,0,0]},
+  {stage:3,n:2,title:'출발점으로 귀환',x0:0,target:0,fuel:8,
+   desc:'x = 0에서 출발해 연료 8을 정확히 다 쓰고, t = 6에 다시 x = 0으로 돌아오세요.',
+   tip:'위치의 변화량은 0인데 거리는 8! 초록 넓이와 빨강 넓이는 각각 얼마여야 할까요?',init:[2,2,2,2,2,2,2]},
+  {stage:3,n:3,title:'돌아서 가는 길',x0:-2,target:2,fuel:10,
+   desc:'x = −2에서 x = 2까지 가는데, 연료 10을 정확히 다 써야 해요.',
+   tip:'(초록 넓이) − (빨강 넓이) = 4, (초록 넓이) + (빨강 넓이) = 10',init:[1,1,1,1,1,1,1]},
+  {stage:3,n:4,title:'정지 착륙',x0:3,target:-1,fuel:12,
+   desc:'x = 3에서 x = −1로 가면서 연료 12를 정확히 쓰고, t = 6에는 멈춰 있어야 해요.',
+   tip:'v(6) = 0 이면 t = 6에서 정지한 상태예요. 넓이 조건 두 개를 먼저 세워 보세요.',
+   cond:{label:'t = 6에서 정지 (v(6) = 0)',fn:(v)=>v[6]===0},
+   init:[-2,-2,-2,-2,-2,-2,-2]},
+];
+const STAGE_NAMES = {2:'STAGE 2 목적지 도착',3:'STAGE 3 연료 제한'};
+
+const $ = id => document.getElementById(id);
+const track = $('track'), graph = $('graph');
+let mi = 0, v = [], tc = 0, playing = false, hint = false, raf = 0, stopAt = null, sel = 0, dragging = false;
+let lastResult = null;
+
+/* ---------- 저장 (선택) ---------- */
+let cleared = {};
+try { cleared = JSON.parse(localStorage.getItem('velo-driver-v1') || '{}') || {}; } catch(e) { cleared = {}; }
+function save(){ try { localStorage.setItem('velo-driver-v1', JSON.stringify(cleared)); } catch(e){} }
+
+/* ---------- 수학 ---------- */
+function vAt(t){ const i = Math.min(Math.floor(t), T-1); const f = t - i; return v[i] + (v[i+1]-v[i])*f; }
+// 한 일차 구간 [a,b] 안의 양/음 넓이
+function piece(a,b){
+  const va = vAt(a), vb = vAt(b), d = b - a;
+  if (d <= 0) return {pos:0,neg:0};
+  if (va >= 0 && vb >= 0) return {pos:(va+vb)/2*d, neg:0};
+  if (va <= 0 && vb <= 0) return {pos:0, neg:-(va+vb)/2*d};
+  const r = va/(va-vb)*d, p1 = va*r/2, p2 = vb*(d-r)/2;
+  return va > 0 ? {pos:p1, neg:-p2} : {pos:p2, neg:-p1};
+}
+function integ(t){
+  let pos = 0, neg = 0;
+  for (let i = 0; i < T && i < t; i++){ const q = piece(i, Math.min(i+1, t)); pos += q.pos; neg += q.neg; }
+  return {pos, neg, disp:pos-neg, dist:pos+neg};
+}
+function xmaxOf(x0){ let m = x0; for (let k = 1; k <= 600; k++){ m = Math.max(m, x0 + integ(k/100).disp); } return m; }
+function fmt(n){
+  let r = Math.round(n*100)/100; if (Math.abs(r) < 1e-9) return '0';
+  const a = Math.abs(r); const s = Number.isInteger(a) ? a.toFixed(0) : String(a);
+  return (r < 0 ? '−' : '') + s;
+}
+
+/* ---------- 미션 ---------- */
+function M(){ return MISSIONS[mi]; }
+function buildNav(){
+  const nav = $('stages'); nav.innerHTML = '';
+  [2,3].forEach(st => {
+    const g = document.createElement('div'); g.className = 'sgroup';
+    g.innerHTML = `<span class="sname">${STAGE_NAMES[st]}</span>`;
+    MISSIONS.forEach((m, i) => {
+      if (m.stage !== st) return;
+      const b = document.createElement('button');
+      b.className = 'mbtn' + (cleared[i] ? ' cleared' : '');
+      b.textContent = `${m.stage}-${m.n}`;
+      b.setAttribute('aria-current', i === mi ? 'true' : 'false');
+      b.setAttribute('aria-label', `미션 ${m.stage}-${m.n} ${m.title}${cleared[i]?' (성공)':''}`);
+      b.onclick = () => loadMission(i);
+      g.appendChild(b);
+    });
+    nav.appendChild(g);
+  });
+}
+function goalsOf(m){
+  const g = [{key:'x', label:`t = 6에 x = ${fmt(m.target)} 도착`}];
+  if (m.fuel != null) g.push({key:'fuel', label:`연료(움직인 거리) ${m.fuel} 을 정확히 사용`});
+  if (m.cond) g.push({key:'cond', label:m.cond.label});
+  return g;
+}
+function renderGoals(status){
+  $('mGoals').innerHTML = goalsOf(M()).map(g => {
+    const s = status ? (status[g.key] ? 'ok' : 'bad') : '';
+    const mk = status ? (status[g.key] ? '✓' : '✗') : '○';
+    return `<li class="${s}"><span class="mk">${mk}</span><span>${g.label}</span></li>`;
+  }).join('');
+}
+function loadMission(i){
+  cancelAnimationFrame(raf); playing = false;
+  mi = i; const m = M(); v = m.init.slice(); tc = 0; stopAt = null; sel = 0; lastResult = null;
+  $('mEyebrow').textContent = `${STAGE_NAMES[m.stage]} · 미션 ${m.n}`;
+  $('mTitle').textContent = m.title;
+  $('mDesc').textContent = m.desc;
+  $('mTip').textContent = '힌트 · ' + m.tip;
+  $('kS').innerHTML = m.fuel != null ? `사용한 연료 (거리) <b>∫|v|dt</b>` : `움직인 거리 <b>∫ |v(t)| dt</b>`;
+  renderGoals(null); hideResult(); buildNav(); draw();
+}
+
+/* ---------- 그리기 ---------- */
+let C = {};
+function readColors(){ const s = getComputedStyle(document.documentElement);
+  ['bg','panel','ink','muted','line','grid','accent','pos','neg','bad'].forEach(k => C[k] = s.getPropertyValue('--'+k).trim()); }
+function prep(c){
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)){ c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); }
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h};
+}
+function G(w,h){
+  const L = 44, R = w - 18, Tp = 14, B = h - 30;
+  return {L,R,Tp,B, tx:t => L+(R-L)*t/T, vy:val => Tp+(B-Tp)*(VMAX-val)/(2*VMAX),
+    xt:px => (px-L)/(R-L)*T, yv:py => VMAX - (py-Tp)/(B-Tp)*2*VMAX};
+}
+function drawGraph(){
+  const {ctx,w,h} = prep(graph), g = G(w,h), y0 = g.vy(0);
+  ctx.font = '12px "IBM Plex Mono", monospace'; ctx.textBaseline = 'middle';
+  // 격자
+  for (let k = -VMAX; k <= VMAX; k++){
+    ctx.strokeStyle = k === 0 ? C.muted : C.grid; ctx.lineWidth = k === 0 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(g.L, g.vy(k)); ctx.lineTo(g.R, g.vy(k)); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(fmt(k), g.L-8, g.vy(k));
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let t = 0; t <= T; t++){
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(g.tx(t), g.Tp); ctx.lineTo(g.tx(t), g.B); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.fillText(String(t), g.tx(t), g.B+8);
+  }
+  ctx.textAlign = 'left'; ctx.fillText('t', g.R+4 > w-10 ? w-10 : g.R+4, y0+4);
+  // 넓이 경로
+  const area = new Path2D(); area.moveTo(g.tx(0), y0);
+  for (let i = 0; i <= T; i++) area.lineTo(g.tx(i), g.vy(v[i]));
+  area.lineTo(g.tx(T), y0); area.closePath();
+  function fillSigned(alpha, xEnd){
+    [['pos', g.Tp, y0-g.Tp], ['neg', y0, g.B-y0]].forEach(([c, top, hh]) => {
+      ctx.save(); ctx.beginPath(); ctx.rect(g.L, top, xEnd-g.L, hh); ctx.clip();
+      ctx.globalAlpha = alpha; ctx.fillStyle = C[c]; ctx.fill(area); ctx.restore();
+    });
+  }
+  fillSigned(0.14, g.R);
+  if (tc > 0) fillSigned(0.42, g.tx(tc));
+  // 그래프 선
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath(); for (let i = 0; i <= T; i++){ const X = g.tx(i), Y = g.vy(v[i]); i ? ctx.lineTo(X,Y) : ctx.moveTo(X,Y); } ctx.stroke();
+  // 넓이 값
+  if (hint){
+    ctx.font = '600 13px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < T; i++){
+      const va = v[i], vb = v[i+1], parts = [];
+      if (va*vb < 0){ const r = i + va/(va-vb); parts.push([i, r, va*(r-i)/2, va/3]); parts.push([r, i+1, vb*(i+1-r)/2, vb/3]); }
+      else { const a = (va+vb)/2; if (a !== 0) parts.push([i, i+1, a, a/2]); }
+      parts.forEach(([a,b,ar,hy]) => {
+        const s = (ar > 0 ? '+' : '') + fmt(ar), X = g.tx((a+b)/2), Y = g.vy(hy);
+        const tw = ctx.measureText(s).width + 8;
+        ctx.globalAlpha = .9; ctx.fillStyle = C.panel; ctx.fillRect(X-tw/2, Y-9, tw, 18); ctx.globalAlpha = 1;
+        ctx.fillStyle = ar > 0 ? C.pos : C.neg; ctx.fillText(s, X, Y);
+      });
+    }
+  }
+  // 시간 커서
+  if (tc > 0){
+    const X = g.tx(tc); ctx.strokeStyle = C.accent; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(X, g.Tp); ctx.lineTo(X, g.B); ctx.stroke();
+    ctx.fillStyle = C.accent; ctx.beginPath(); ctx.arc(X, g.vy(vAt(tc)), 5, 0, 7); ctx.fill();
+  }
+  // 조절점
+  for (let i = 0; i <= T; i++){
+    const X = g.tx(i), Y = g.vy(v[i]), active = (i === sel && (dragging || document.activeElement === graph));
+    ctx.beginPath(); ctx.arc(X, Y, active ? 11 : 9, 0, 7);
+    ctx.fillStyle = active ? C.accent : C.panel; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = C.ink; ctx.stroke();
+    if (active){
+      ctx.font = '600 13px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillStyle = C.ink; ctx.fillText(`v(${i}) = ${fmt(v[i])}`, Math.min(Math.max(X, g.L+40), g.R-40), Y - (v[i] > VMAX-1 ? -30 : 16));
+    }
+  }
+}
+function drawTrack(){
+  const {ctx,w,h} = prep(track), m = M();
+  const L = 22, R = w - 22, yA = 104, px = x => L + (R-L)*(x+XR)/(2*XR), unit = (R-L)/(2*XR);
+  // 도착 허용 구간
+  ctx.globalAlpha = .22; ctx.fillStyle = C.accent;
+  ctx.fillRect(px(m.target-TOL), 18, px(m.target+TOL)-px(m.target-TOL), yA-18+6); ctx.globalAlpha = 1;
+  // 축
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(L-8, yA); ctx.lineTo(R+8, yA); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.moveTo(R+14, yA); ctx.lineTo(R+6, yA-5); ctx.lineTo(R+6, yA+5); ctx.fill();
+  ctx.font = '12px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const every = unit >= 26 ? 1 : 2;
+  for (let x = -XR; x <= XR; x++){
+    const big = x % every === 0;
+    ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px(x), yA-(big?6:3)); ctx.lineTo(px(x), yA+(big?6:3)); ctx.stroke();
+    if (big){ ctx.fillStyle = x === 0 ? C.ink : C.muted; ctx.fillText(fmt(x), px(x), yA+10); }
+  }
+  // 출발/도착 표시
+  function flag(x, txt, col, row){
+    const X = px(x); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(X, yA+28); ctx.lineTo(X-6, yA+38); ctx.lineTo(X+6, yA+38); ctx.fill();
+    ctx.font = '600 12px "IBM Plex Sans KR", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(txt, Math.min(Math.max(X, L+30), R-30), yA+42+row*16);
+  }
+  const close = Math.abs(px(m.x0) - px(m.target)) < 70;
+  flag(m.x0, `출발 ${fmt(m.x0)}`, C.muted, 0);
+  flag(m.target, `도착 ${fmt(m.target)}`, C.accent, close ? 1 : 0);
+  // 지나온 길 (방향이 바뀔 때마다 한 줄씩 위로)
+  if (tc > 0){
+    let level = 0, dir = 0, prevX = m.x0, prevT = 0;
+    ctx.lineWidth = 4; ctx.lineCap = 'round';
+    const dt = 0.02;
+    for (let t = dt; t <= tc + 1e-9; t += dt){
+      const tt = Math.min(t, tc), x = m.x0 + integ(tt).disp, vv = vAt((prevT+tt)/2);
+      const d = vv > 1e-9 ? 1 : vv < -1e-9 ? -1 : 0;
+      if (d !== 0 && dir !== 0 && d !== dir) level++;
+      if (d !== 0) dir = d;
+      const y = yA - 14 - level*9;
+      if (d !== 0){ ctx.strokeStyle = d > 0 ? C.pos : C.neg; ctx.beginPath(); ctx.moveTo(px(clampX(prevX)), y); ctx.lineTo(px(clampX(x)), y); ctx.stroke(); }
+      prevX = x; prevT = tt;
+    }
+  }
+  // 점 P
+  const xNow = m.x0 + integ(tc).disp, xc = clampX(xNow), X = px(xc), vNow = tc > 0 && tc < T ? vAt(tc) : 0;
+  if (Math.abs(vNow) > 1e-6){
+    const len = Math.max(-80, Math.min(80, vNow*16));
+    ctx.strokeStyle = vNow > 0 ? C.pos : C.neg; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(X, yA); ctx.lineTo(X+len, yA); ctx.stroke();
+    const s = Math.sign(len); ctx.beginPath(); ctx.moveTo(X+len+s*8, yA); ctx.lineTo(X+len, yA-6); ctx.lineTo(X+len, yA+6); ctx.fill();
+  }
+  ctx.beginPath(); ctx.arc(X, yA, 13, 0, 7); ctx.fillStyle = C.accent; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.fillStyle = '#2B1D00'; ctx.font = '600 14px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('P', X, yA+1);
+  if (xc !== xNow){ ctx.fillStyle = C.bad || C.neg; ctx.font = '600 12px "IBM Plex Sans KR", sans-serif'; ctx.textBaseline = 'bottom';
+    ctx.fillText(`범위 밖 (x = ${fmt(xNow)})`, Math.min(Math.max(X, L+50), R-50), yA-20); }
+}
+function clampX(x){ return Math.max(-XR, Math.min(XR, x)); }
+function updateMeters(){
+  const m = M(), s = integ(tc), x = m.x0 + s.disp;
+  $('timeLbl').textContent = `t = ${tc.toFixed(2)}`;
+  $('mX').textContent = fmt(x);
+  $('mD').textContent = fmt(s.disp);
+  const bD = $('bD'), span = 12, wd = Math.min(50, Math.abs(s.disp)/span*50);
+  bD.style.background = s.disp >= 0 ? 'var(--pos)' : 'var(--neg)';
+  bD.style.left = (s.disp >= 0 ? 50 : 50 - wd) + '%'; bD.style.width = wd + '%';
+  const bS = $('bS');
+  if (m.fuel != null){
+    $('mS').textContent = `${fmt(s.dist)} / ${m.fuel}`;
+    const r = Math.min(1, s.dist/m.fuel); bS.style.left = '0'; bS.style.width = (r*100) + '%';
+    bS.style.background = s.dist > m.fuel + TOL ? 'var(--neg)' : 'var(--accent)';
+  } else {
+    $('mS').textContent = fmt(s.dist);
+    bS.style.left = '0'; bS.style.width = Math.min(100, s.dist/24*100) + '%'; bS.style.background = 'var(--muted)';
+  }
+}
+function draw(){ drawTrack(); drawGraph(); updateMeters(); }
+
+/* ---------- 실행 ---------- */
+function run(){
+  if (playing) return;
+  hideResult(); renderGoals(null);
+  const m = M(); stopAt = null; tc = 0;
+  if (m.fuel != null && integ(T).dist > m.fuel + TOL){
+    let lo = 0, hi = T; for (let k = 0; k < 40; k++){ const mid = (lo+hi)/2; integ(mid).dist < m.fuel ? lo = mid : hi = mid; }
+    stopAt = lo;
+  }
+  const end = stopAt ?? T;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const dur = reduce ? 1 : Math.max(800, 5000*end/T), t0 = performance.now();
+  playing = true; $('runBtn').disabled = true;
+  const step = now => {
+    tc = Math.min(end, (now - t0)/dur*end); draw();
+    if (tc < end) raf = requestAnimationFrame(step); else finish();
+  };
+  raf = requestAnimationFrame(step);
+}
+function finish(){
+  playing = false; $('runBtn').disabled = false;
+  const m = M(), full = integ(T), end = stopAt ?? T, now = integ(end), xEnd = m.x0 + now.disp;
+  const st = {};
+  st.x = stopAt == null && Math.abs(xEnd - m.target) <= TOL + 1e-9;
+  if (m.fuel != null) st.fuel = stopAt == null && Math.abs(full.dist - m.fuel) <= TOL + 1e-9;
+  if (m.cond) st.cond = !!m.cond.fn(v, {xmax: xmaxOf(m.x0)});
+  const ok = Object.values(st).every(Boolean);
+  renderGoals(st);
+  if (ok){ cleared[mi] = true; save(); buildNav(); }
+
+  let msg = '';
+  if (ok) msg = m.fuel != null ? '도착 위치와 연료 사용량이 모두 맞았어요.' : '정확히 목적지에 도착했어요.';
+  else if (stopAt != null) msg = `t = ${stopAt.toFixed(2)}에서 연료가 바닥나 멈췄어요. 그래프대로라면 움직인 거리가 ${fmt(full.dist)}로, 연료 ${m.fuel}보다 길어요.`;
+  else {
+    const tips = [];
+    if (!st.x){ const d = xEnd - m.target; tips.push(`도착 위치가 목표보다 ${fmt(Math.abs(d))}만큼 ${d > 0 ? '오른쪽' : '왼쪽'}이에요. 위치의 변화량을 ${fmt(Math.abs(d))}만큼 ${d > 0 ? '줄여' : '늘려'} 보세요.`); }
+    if (m.fuel != null && !st.fuel){ tips.push(`연료가 ${fmt(m.fuel - full.dist)} 남았어요. 방향을 바꿨다가 돌아오는 구간이 있으면 위치는 그대로여도 거리가 늘어나요.`); }
+    if (m.cond && !st.cond) tips.push(`조건 「${m.cond.label}」을 만족하지 않아요.`);
+    msg = tips.join(' ');
+  }
+  const P = `<span class="p">${fmt(full.pos)}</span>`, N = `<span class="n">${fmt(full.neg)}</span>`;
+  const x0s = m.x0 < 0 ? `(${fmt(m.x0)})` : fmt(m.x0);
+  const box = $('result');
+  box.className = 'card result ' + (ok ? 'ok' : 'bad');
+  box.innerHTML = `
+    <div class="res-head">${ok ? '미션 성공!' : '다시 도전!'}</div>
+    <p>${msg}</p>
+    <div class="eq"><span class="cap">t = 6일 때 점 P의 위치 (위치의 변화량 = 초록 넓이 − 빨강 넓이)</span>
+      x(6) = x₀ + ∫₀⁶ v(t) dt<br>= ${x0s} + (${P} − ${N}) = <b>${fmt(m.x0 + full.disp)}</b></div>
+    <div class="eq"><span class="cap">t = 0부터 t = 6까지 움직인 거리 (초록 넓이 + 빨강 넓이)</span>
+      s = ∫₀⁶ |v(t)| dt = ${P} + ${N} = <b>${fmt(full.dist)}</b></div>
+    ${ok && mi < MISSIONS.length-1 ? '<button class="primary" id="nextBtn">다음 미션 ▶</button>' : ''}
+    ${ok && mi === MISSIONS.length-1 ? '<p><b>모든 미션을 완료했어요!</b></p>' : ''}`;
+  box.hidden = false;
+  const nb = $('nextBtn'); if (nb) nb.onclick = () => loadMission(mi+1);
+}
+function hideResult(){ $('result').hidden = true; }
+function resetRun(){ cancelAnimationFrame(raf); playing = false; $('runBtn').disabled = false; tc = 0; stopAt = null; hideResult(); renderGoals(null); draw(); }
+
+/* ---------- 입력 ---------- */
+function setPoint(i, val){
+  val = Math.max(-VMAX, Math.min(VMAX, Math.round(val/STEP)*STEP));
+  if (v[i] !== val){ v[i] = val; if (tc > 0 || !$('result').hidden) { tc = 0; hideResult(); renderGoals(null); } }
+  draw();
+}
+function fromEvent(e){
+  const r = graph.getBoundingClientRect(), g = G(graph.clientWidth, graph.clientHeight);
+  return {g, x: e.clientX - r.left, y: e.clientY - r.top};
+}
+graph.addEventListener('pointerdown', e => {
+  if (playing) return;
+  const {g,x,y} = fromEvent(e);
+  sel = Math.max(0, Math.min(T, Math.round(g.xt(x))));
+  dragging = true; graph.setPointerCapture(e.pointerId); setPoint(sel, g.yv(y)); e.preventDefault();
+});
+graph.addEventListener('pointermove', e => { if (!dragging) return; const {g,y} = fromEvent(e); setPoint(sel, g.yv(y)); });
+const endDrag = () => { if (dragging){ dragging = false; draw(); } };
+graph.addEventListener('pointerup', endDrag); graph.addEventListener('pointercancel', endDrag);
+graph.addEventListener('keydown', e => {
+  if (playing) return;
+  if (e.key === 'ArrowLeft'){ sel = Math.max(0, sel-1); draw(); }
+  else if (e.key === 'ArrowRight'){ sel = Math.min(T, sel+1); draw(); }
+  else if (e.key === 'ArrowUp'){ setPoint(sel, v[sel]+STEP); }
+  else if (e.key === 'ArrowDown'){ setPoint(sel, v[sel]-STEP); }
+  else return;
+  e.preventDefault();
+});
+graph.addEventListener('focus', draw); graph.addEventListener('blur', draw);
+$('runBtn').onclick = run;
+$('resetBtn').onclick = resetRun;
+$('hintBtn').onclick = () => { hint = !hint; $('hintBtn').setAttribute('aria-pressed', String(hint)); draw(); };
+
+/* ---------- 테마/크기 ---------- */
+readColors();
+new ResizeObserver(() => draw()).observe(document.querySelector('.main'));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+new MutationObserver(() => { readColors(); draw(); }).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+loadMission(0);
+})();
+</script>
