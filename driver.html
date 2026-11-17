@@ -105,8 +105,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
         </div>
         <canvas id="graph" tabindex="0" aria-label="속도 그래프 편집기. 좌우 화살표로 점 선택, 위아래 화살표로 값 조절"></canvas>
         <div class="legend">
-          <span><i class="sw pos"></i>v &gt; 0 : 오른쪽으로 이동 (넓이 +)</span>
-          <span><i class="sw neg"></i>v &lt; 0 : 왼쪽으로 이동 (넓이 −)</span>
+          <span><i class="sw pos"></i>v &gt; 0 : 오른쪽으로 이동</span>
+          <span><i class="sw neg"></i>v &lt; 0 : 왼쪽으로 이동</span>
         </div>
       </div>
     </section>
@@ -151,7 +151,7 @@ const T = 6, VMAX = 4, STEP = 0.5, TOL = 0.25, XR = 10;
 const MISSIONS = [
   {stage:2,n:1,title:'목적지까지 달려라',x0:0,target:6,
    desc:'점 P는 x = 0에서 출발해요. t = 6일 때 정확히 x = 6에 도착하도록 속도 그래프를 설계하세요.',
-   tip:'위치의 변화량은 속도 그래프와 t축 사이의 넓이와 같아요.',init:[1,2,2,1,0,0,0]},
+   tip:'v(t) ≥ 0일 때, 위치의 변화량은 속도 그래프와 t축 사이의 넓이와 같아요.',init:[1,2,2,1,0,0,0]},
   {stage:2,n:2,title:'왼쪽으로 후진',x0:2,target:-4,
    desc:'x = 2에서 출발해서 t = 6에 x = −4에 도착하세요.',
    tip:'왼쪽으로 가려면 v(t) < 0, 즉 t축 아래쪽 넓이가 필요해요. 위치의 변화량은 몇이어야 할까요?',init:[0,-1,-1,-1,0,0,0]},
@@ -312,7 +312,7 @@ function drawGraph(){
       if (va*vb < 0){ const r = i + va/(va-vb); parts.push([i, r, va*(r-i)/2, va/3]); parts.push([r, i+1, vb*(i+1-r)/2, vb/3]); }
       else { const a = (va+vb)/2; if (a !== 0) parts.push([i, i+1, a, a/2]); }
       parts.forEach(([a,b,ar,hy]) => {
-        const s = (ar > 0 ? '+' : '') + fmt(ar), X = g.tx((a+b)/2), Y = g.vy(hy);
+        const s = fmt(Math.abs(ar)), X = g.tx((a+b)/2), Y = g.vy(hy);
         const tw = ctx.measureText(s).width + 8;
         ctx.globalAlpha = .9; ctx.fillStyle = C.panel; ctx.fillRect(X-tw/2, Y-9, tw, 18); ctx.globalAlpha = 1;
         ctx.fillStyle = ar > 0 ? C.pos : C.neg; ctx.fillText(s, X, Y);
