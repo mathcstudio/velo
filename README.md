@@ -4,7 +4,7 @@
 학생은 그 앱을 **고치고 → 버그를 잡고 → 배포**해서 친구들과 나누는 과정까지 체험합니다.
 
 - **설치 안내(교사용):** [docs/SETUP.md](docs/SETUP.md)
-- 구조: Next.js (Vercel) + Supabase + OpenAI API
+- 구조: Next.js (Vercel) + Supabase + **GPT(OpenAI) 또는 Claude(Anthropic)**: 교사 화면에서 선택
 
 ## 학습 흐름
 
@@ -44,7 +44,7 @@
 - 학생별 오늘 사용량, 사용 중지, PIN 초기화
 - 학생별 **프롬프트 기록**(평가·세특 자료), 버전 실행해 보기, 차단된 입력 확인
 - 배포 승인과 반려, 공개 앱 숨기기
-- AI 켜기/끄기, 모델, 1인당 하루·분당 호출 한도, 추가 지시문
+- AI 켜기/끄기, **GPT/Claude 선택**, 모델과 추론 강도, 1인당 하루·분당 호출 한도, 추가 지시문
 - 오늘 호출 수와 토큰 사용량
 
 ## 안전장치
@@ -54,9 +54,9 @@
 | API 키 유출 | 키는 Vercel 서버 환경변수에만 둠. 브라우저는 VELO 서버만 호출 |
 | DB 직접 접근 | 모든 테이블에 RLS를 켜고 정책 없음 → 공개 키로는 접근 불가. 서버만 service_role 키 사용 |
 | 학생 앱 코드가 사이트를 공격 | 미리보기는 `sandbox` iframe(다른 출처), 배포 주소는 `CSP sandbox` 헤더로 다른 출처 처리. 외부 접속(`connect-src 'none'`) 차단 |
-| 부적절한 입력 | 프롬프트, 앱 이름, 피드백을 OpenAI Moderation API로 검사. 차단 기록은 교사 화면에 표시 |
+| 부적절한 입력 | 프롬프트, 앱 이름, 피드백을 OpenAI Moderation API(키가 없으면 Claude Haiku)로 검사. 차단 기록은 교사 화면에 표시. Claude의 거절(refusal)은 학생에게 안내 |
 | 비용 폭주 | 1인당 하루·분당 한도, 동시 생성 1개, AI 전체 끄기 스위치 |
-| 혼잡(OpenAI 429) | 학생 화면에서 안내 후 자동 재시도(최대 3회, 점점 길게 대기). 혼잡으로 실패한 호출은 한도에서 빼 줌 |
+| 혼잡(429/과부하) | 학생 화면에서 안내 후 자동 재시도(최대 3회, 점점 길게 대기). 혼잡으로 실패한 호출은 한도에서 빼 줌 |
 
 ## 개발
 
@@ -79,9 +79,10 @@ app/
 components/             화면 컴포넌트
 lib/
   prompts.ts            프롬프트 카드 정의, 형식, 미리보기 보안 설정
-  openai.ts             시스템 프롬프트, OpenAI 스트리밍, 결과 파싱, 검열
+  ai.ts                 공통: 시스템 프롬프트, GPT/Claude 선택, 결과 파싱, 입력 검사
+  openai.ts / claude.ts 각 AI 회사 API 호출 (스트리밍)
   session.ts / auth.ts  로그인 쿠키, PIN 해시, 권한 확인
 supabase/schema.sql     DB 구조 (SQL Editor에서 한 번 실행)
 ```
 
-AI에게 주는 규칙(시스템 프롬프트)은 `lib/openai.ts`의 `systemPrompt()`에 있습니다.
+AI에게 주는 규칙(시스템 프롬프트)은 `lib/ai.ts`의 `systemPrompt()`에 있고, 두 AI가 같은 규칙을 씁니다.

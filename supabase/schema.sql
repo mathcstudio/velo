@@ -95,6 +95,9 @@ create table if not exists usage_logs (
   error text,
   created_at timestamptz not null default now()
 );
+-- (GPT/Claude 선택 기능 추가 이후) 어떤 AI·모델을 썼는지 기록. 이미 만든 DB에도 안전하게 추가됨
+alter table usage_logs add column if not exists provider text;
+alter table usage_logs add column if not exists model text;
 create index if not exists usage_logs_student_time_idx on usage_logs(student_id, created_at desc);
 
 -- 전체 설정(키-값)

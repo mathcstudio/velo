@@ -1,7 +1,7 @@
 import { requireStudent } from "@/lib/auth";
 import { db } from "@/lib/supabase";
 import { handle, HttpError, maybe, must, readJson, str } from "@/lib/http";
-import { isFlagged } from "@/lib/openai";
+import { isFlagged } from "@/lib/ai";
 
 type Ctx = { params: Promise<{ id: string }> };
 

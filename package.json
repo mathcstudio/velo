@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0",
     "@supabase/supabase-js": "^2.119.2",
     "next": "16.4.6",
     "qrcode": "^1.5.4",

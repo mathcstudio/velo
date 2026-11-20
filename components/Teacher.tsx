@@ -11,13 +11,20 @@ type Dep = {
   version_id: string | null; pending_version_id: string | null; hidden: boolean; updated_at: string;
   projects: { title: string; students: { name: string; classes: { name: string } } };
 };
-type Settings = { enabled: boolean; model: string; reasoningEffort: string; extraInstructions: string; perMinuteLimit: number };
+type Provider = "openai" | "anthropic";
+type Settings = {
+  enabled: boolean; provider: Provider;
+  model: string; reasoningEffort: string;
+  claudeModel: string; claudeEffort: string;
+  extraInstructions: string; perMinuteLimit: number;
+};
+type ModelUsage = { model: string; calls: number; tokensIn: number; tokensOut: number };
 type Overview = {
   classes: Cls[];
   deployments: Dep[];
-  usageToday: { calls: number; errors: number; blocked: number; running: number; tokensIn: number; tokensOut: number };
+  usageToday: { calls: number; errors: number; blocked: number; running: number; tokensIn: number; tokensOut: number; byModel: ModelUsage[] };
   settings: Settings;
-  openaiKeySet: boolean;
+  keys: { openai: boolean; anthropic: boolean };
 };
 type Student = { id: string; name: string; blocked: boolean; locked: boolean; pinSet: boolean; projectCount: number; callsToday: number; blockedToday: number };
 type History = {
@@ -62,7 +69,9 @@ export default function Teacher() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Badge color={data.settings.enabled ? "emerald" : "rose"}>{data.settings.enabled ? "AI 사용 중" : "AI 꺼짐"}</Badge>
+          <Badge color={data.settings.enabled ? "emerald" : "rose"}>
+            {data.settings.enabled ? `${PROVIDER_LABEL[data.settings.provider]} 사용 중` : "AI 꺼짐"}
+          </Badge>
           <button
             onClick={async () => { await api("/api/auth/teacher", { method: "DELETE" }); location.reload(); }}
             className="min-h-11 rounded-xl px-3 text-gray-500 hover:bg-gray-100"
@@ -71,8 +80,11 @@ export default function Teacher() {
           </button>
         </div>
       </header>
-      {!data.openaiKeySet && (
-        <p className="bg-rose-100 p-3 text-center text-rose-800">⚠️ OPENAI_API_KEY 환경변수가 설정되지 않았어요. Vercel 설정에서 추가해 주세요.</p>
+      {!data.keys[data.settings.provider] && (
+        <p className="bg-rose-100 p-3 text-center text-rose-800">
+          ⚠️ 지금 선택된 AI({PROVIDER_LABEL[data.settings.provider]})의 API 키가 없어요. Vercel 환경변수에{" "}
+          <code>{data.settings.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"}</code>를 추가하거나, AI 설정에서 다른 AI를 고르세요.
+        </p>
       )}
       <main className="mx-auto w-full max-w-6xl flex-1 p-4">
         {tab === "classes" && <ClassesTab classes={data.classes} reload={load} />}
@@ -393,6 +405,14 @@ function DeployTab({ deployments, reload }: { deployments: Dep[]; reload: () => 
 }
 
 /* ── AI 설정·사용량 ──────────────────────────────── */
+const PROVIDER_LABEL: Record<Provider, string> = { openai: "GPT", anthropic: "Claude" };
+const GPT_MODELS = ["gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol", "gpt-6-astra"];
+const CLAUDE_MODELS = [
+  { id: "claude-opus-5-5", note: "최고 성능 · 입력 $4 / 출력 $20 (100만 토큰당)" },
+  { id: "claude-sonnet-5-5", note: "균형형 · $2 / $10" },
+  { id: "claude-haiku-5-5", note: "가장 빠르고 저렴 · $0.10 / $0.50" },
+];
+
 function SettingsTab({ data, reload }: { data: Overview; reload: () => void }) {
   const [s, setS] = useState<Settings>(data.settings);
   const [saved, setSaved] = useState(false);
@@ -404,6 +424,8 @@ function SettingsTab({ data, reload }: { data: Overview; reload: () => void }) {
     setTimeout(() => setSaved(false), 2000);
     reload();
   }
+
+  const field = "h-11 rounded-xl border-2 border-gray-200 px-3";
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -417,7 +439,28 @@ function SettingsTab({ data, reload }: { data: Overview; reload: () => void }) {
           <Stat label="입력 토큰" value={u.tokensIn.toLocaleString()} />
           <Stat label="출력 토큰" value={u.tokensOut.toLocaleString()} />
         </div>
-        <p className="mt-3 text-xs text-gray-500">정확한 비용은 OpenAI 대시보드(Usage)에서 확인하세요. 출력 토큰이 입력보다 비쌉니다.</p>
+        {u.byModel.length > 0 && (
+          <>
+            <h3 className="mt-5 mb-2 font-bold">모델별 비교 (성공한 호출)</h3>
+            <table className="w-full text-left text-sm">
+              <thead className="text-gray-500">
+                <tr><th className="py-1">모델</th><th>호출</th><th>1회 평균 입력</th><th>1회 평균 출력</th></tr>
+              </thead>
+              <tbody>
+                {u.byModel.map((m) => (
+                  <tr key={m.model} className="border-t">
+                    <td className="py-1.5 font-mono text-xs">{m.model}</td>
+                    <td>{m.calls}</td>
+                    <td>{Math.round(m.tokensIn / m.calls).toLocaleString()}</td>
+                    <td>{Math.round(m.tokensOut / m.calls).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-1 text-xs text-gray-500">출력 토큰에는 AI의 생각(추론) 토큰이 포함돼요. 같은 수업을 두 AI로 해 보면 실제 차이를 비교할 수 있어요.</p>
+          </>
+        )}
+        <p className="mt-3 text-xs text-gray-500">정확한 비용은 각 회사 대시보드(OpenAI Usage / Claude Console Usage)에서 확인하세요.</p>
       </Card>
 
       <Card>
@@ -435,29 +478,79 @@ function SettingsTab({ data, reload }: { data: Overview; reload: () => void }) {
               {s.enabled ? "켜짐" : "꺼짐"}
             </Button>
           </div>
-          <label className="flex flex-col gap-1">
-            <span className="font-semibold">모델 이름</span>
-            <input value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} className="h-11 rounded-xl border-2 border-gray-200 px-3 font-mono" />
-            <span className="text-xs text-gray-500">OpenAI 모델 ID를 그대로 입력하세요. 수업용으로는 빠르고 저렴한 mini급 모델을 추천해요.</span>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="font-semibold">추론 강도 (추론 모델일 때만)</span>
-            <select value={s.reasoningEffort} onChange={(e) => setS({ ...s, reasoningEffort: e.target.value })} className="h-11 rounded-xl border-2 border-gray-200 px-3">
-              <option value="">보내지 않음 (일반 모델 / 모델 기본값)</option>
-              <option value="none">none — 추론 없음 (가장 빠르고 토큰 최소, 지원 모델만)</option>
-              <option value="low">low — 수업용 추천</option>
-              <option value="medium">medium</option>
-              <option value="high">high — 토큰 많이 씀</option>
-              <option value="xhigh">xhigh — 토큰 매우 많이 씀</option>
-            </select>
-            <span className="text-xs text-gray-500">추론 강도가 높을수록 앱 품질은 좋아지지만 토큰(비용)과 시간이 크게 늘어요. 모델이 지원하지 않는 값을 고르면 오류가 나니, 오류가 나면 low로 바꿔 보세요.</span>
-          </label>
+
+          <div>
+            <p className="mb-1 font-semibold">사용할 AI</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(["openai", "anthropic"] as Provider[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setS({ ...s, provider: p })}
+                  className={`rounded-2xl border-2 p-3 text-left ${s.provider === p ? "border-violet-500 bg-violet-50" : "border-gray-200"}`}
+                >
+                  <p className="font-bold">{p === "openai" ? "GPT (OpenAI)" : "Claude (Anthropic)"}</p>
+                  <p className={`text-xs ${data.keys[p] ? "text-emerald-600" : "text-rose-600"}`}>
+                    {data.keys[p] ? "✓ API 키 설정됨" : `✗ ${p === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY"} 없음`}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">바꾼 뒤 [저장]을 누르면 다음 생성부터 바로 적용돼요. 학생 화면과 기록은 그대로예요.</p>
+          </div>
+
+          {s.provider === "openai" ? (
+            <>
+              <label className="flex flex-col gap-1">
+                <span className="font-semibold">GPT 모델</span>
+                <input list="gpt-models" value={s.model} onChange={(e) => setS({ ...s, model: e.target.value })} className={`${field} font-mono`} />
+                <datalist id="gpt-models">{GPT_MODELS.map((m) => <option key={m} value={m} />)}</datalist>
+                <span className="text-xs text-gray-500">OpenAI 모델 ID를 그대로 입력하세요. 목록에 없는 모델도 입력할 수 있어요.</span>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="font-semibold">추론 강도</span>
+                <select value={s.reasoningEffort} onChange={(e) => setS({ ...s, reasoningEffort: e.target.value })} className={field}>
+                  <option value="">보내지 않음 (일반 모델 / 모델 기본값)</option>
+                  <option value="none">none — 추론 없음 (가장 빠르고 토큰 최소, 지원 모델만)</option>
+                  <option value="low">low — 수업용 추천</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high — 토큰 많이 씀</option>
+                  <option value="xhigh">xhigh — 토큰 매우 많이 씀</option>
+                </select>
+                <span className="text-xs text-gray-500">모델이 지원하지 않는 값을 고르면 오류가 나요. 오류가 나면 low로 바꿔 보세요.</span>
+              </label>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold">Claude 모델</span>
+                <div className="flex flex-col gap-1.5">
+                  {CLAUDE_MODELS.map((m) => (
+                    <label key={m.id} className={`flex min-h-11 items-center gap-3 rounded-xl border-2 px-3 ${s.claudeModel === m.id ? "border-violet-500 bg-violet-50" : "border-gray-200"}`}>
+                      <input type="radio" checked={s.claudeModel === m.id} onChange={() => setS({ ...s, claudeModel: m.id })} className="h-5 w-5 accent-violet-600" />
+                      <span className="font-mono text-sm">{m.id}</span>
+                      <span className="ml-auto text-xs text-gray-500">{m.note}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="font-semibold">생각 깊이 (effort)</span>
+                <select value={s.claudeEffort} onChange={(e) => setS({ ...s, claudeEffort: e.target.value })} className={field}>
+                  <option value="low">low — 수업용 추천 (빠르고 토큰 최소)</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high — 토큰 많이 씀</option>
+                </select>
+                <span className="text-xs text-gray-500">Claude는 생각(thinking)을 항상 해요. 생각 토큰도 출력 요금으로 계산되니 수업에는 low를 추천해요.</span>
+              </label>
+            </>
+          )}
+
           <label className="flex flex-col gap-1">
             <span className="font-semibold">학생 1인당 1분 호출 수</span>
-            <input type="number" min={1} max={20} value={s.perMinuteLimit} onChange={(e) => setS({ ...s, perMinuteLimit: Number(e.target.value) })} className="h-11 w-24 rounded-xl border-2 border-gray-200 px-3" />
+            <input type="number" min={1} max={20} value={s.perMinuteLimit} onChange={(e) => setS({ ...s, perMinuteLimit: Number(e.target.value) })} className={`${field} w-24`} />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="font-semibold">AI에게 추가로 줄 지시 (선택)</span>
+            <span className="font-semibold">AI에게 추가로 줄 지시 (선택, 두 AI 공통)</span>
             <textarea
               value={s.extraInstructions}
               onChange={(e) => setS({ ...s, extraInstructions: e.target.value })}

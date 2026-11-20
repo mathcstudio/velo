@@ -3,7 +3,7 @@ import { db } from "@/lib/supabase";
 import { handle, HttpError, maybe, must, readJson, str, ok } from "@/lib/http";
 import { getSettings } from "@/lib/settings";
 import { countUsage, kstDayStart } from "@/lib/usage";
-import { buildMessages, isFlagged, OpenAIError, parseOutput, streamChat } from "@/lib/openai";
+import { AIError, buildPrompt, generateStream, isFlagged, parseOutput, providerKeySet } from "@/lib/ai";
 import { formatPrompt, type StudentPrompt } from "@/lib/prompts";
 
 // AI가 앱 전체를 만드는 데 수십 초가 걸리므로 넉넉하게 (Vercel 무료 플랜 최대 300초)
@@ -50,6 +50,8 @@ export const POST = handle(async (req: Request) => {
   const project = await requireOwnProject(student.id, projectId);
   const settings = await getSettings();
   if (!settings.enabled) throw new HttpError(403, "지금은 AI 사용 시간이 아니에요. 선생님 안내를 기다려 주세요.");
+  if (!providerKeySet(settings.provider)) throw new HttpError(503, "선택된 AI의 API 키가 설정되지 않았어요. 선생님께 알려 주세요.");
+  const modelName = settings.provider === "anthropic" ? settings.claudeModel : settings.model;
 
   // ── 호출 한도 확인 ──
   const busy = await countUsage(student.id, new Date(Date.now() - 4 * 60e3).toISOString(), ["running"]);
@@ -76,7 +78,11 @@ export const POST = handle(async (req: Request) => {
   if (prompt.kind !== "create" && !currentHtml) throw new HttpError(400, "먼저 앱을 처음 만들어 주세요.");
 
   const log = must(
-    await db().from("usage_logs").insert({ student_id: student.id, status: "running" }).select("id").single(),
+    await db()
+      .from("usage_logs")
+      .insert({ student_id: student.id, status: "running", provider: settings.provider, model: modelName })
+      .select("id")
+      .single(),
   );
 
   const encoder = new TextEncoder();
@@ -93,8 +99,7 @@ export const POST = handle(async (req: Request) => {
       };
 
       try {
-        const messages = buildMessages(settings, promptText, currentHtml);
-        const out = await streamChat(settings, messages, (d) => send({ t: "delta", d }));
+        const out = await generateStream(settings, buildPrompt(settings, promptText, currentHtml), (d) => send({ t: "delta", d }));
         const parsed = parseOutput(out.text);
         if (!parsed) throw new Error("AI가 올바른 HTML을 만들지 못했어요. 다시 시도해 보세요.");
 
@@ -115,15 +120,12 @@ export const POST = handle(async (req: Request) => {
           if (m) update.title = m[1].trim();
         }
         ok(await db().from("projects").update(update).eq("id", projectId));
-        await db().from("usage_logs").update({ status: "ok", tokens_in: out.tokensIn, tokens_out: out.tokensOut }).eq("id", log.id);
+        await db().from("usage_logs").update({ status: "ok", tokens_in: out.tokensIn, tokens_out: out.tokensOut, model: out.model }).eq("id", log.id);
         send({ t: "done", versionId: v.id, number, summary: parsed.summary, html: parsed.html });
       } catch (e) {
-        let message = e instanceof Error ? e.message : "알 수 없는 오류";
+        const message = e instanceof Error ? e.message : "알 수 없는 오류";
         let retry = false;
-        if (e instanceof OpenAIError) {
-          retry = e.status === 429 || e.status >= 500;
-          message = retry ? "지금 AI를 쓰는 친구가 많아요. 잠시 후 자동으로 다시 시도할게요." : "AI 호출에 실패했어요. 선생님께 알려 주세요.";
-        }
+        if (e instanceof AIError) retry = e.retry;
         await db().from("usage_logs").update({ status: "error", error: String(e).slice(0, 500) }).eq("id", log.id);
         send({ t: "error", message, retry });
       } finally {

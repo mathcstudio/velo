@@ -2,7 +2,7 @@ import { requireOwnProject, requireStudent } from "@/lib/auth";
 import { db } from "@/lib/supabase";
 import { handle, HttpError, maybe, must, readJson, str, ok } from "@/lib/http";
 import { randomCode } from "@/lib/session";
-import { isFlagged } from "@/lib/openai";
+import { isFlagged } from "@/lib/ai";
 
 /**
  * 배포하기: 현재 버전을 공개 주소(/p/<slug>)로 내보냄.
