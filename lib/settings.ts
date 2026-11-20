@@ -4,15 +4,16 @@ import { db } from "./supabase";
 export type AppSettings = {
   enabled: boolean;          // false면 학생 AI 호출 전체 중지 (수업 시간 외 등)
   model: string;             // OpenAI 모델 이름
-  reasoningEffort: string;   // 추론 모델일 때만: "", "minimal", "low" ...
+  reasoningEffort: string;   // 추론 모델일 때만: "none" | "low" | "medium" | "high" | "xhigh" ("" = 보내지 않음)
   extraInstructions: string; // 교사가 덧붙이는 AI 지시문
   perMinuteLimit: number;    // 학생 1인당 1분 호출 수
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
   enabled: true,
-  model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-  reasoningEffort: "",
+  model: process.env.OPENAI_MODEL || "gpt-6-luna",
+  // GPT-6 계열은 추론 모델: 추론 토큰도 출력 요금으로 계산되므로 수업용은 low 권장
+  reasoningEffort: "low",
   extraInstructions: "",
   perMinuteLimit: 3,
 };

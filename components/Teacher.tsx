@@ -443,12 +443,14 @@ function SettingsTab({ data, reload }: { data: Overview; reload: () => void }) {
           <label className="flex flex-col gap-1">
             <span className="font-semibold">추론 강도 (추론 모델일 때만)</span>
             <select value={s.reasoningEffort} onChange={(e) => setS({ ...s, reasoningEffort: e.target.value })} className="h-11 rounded-xl border-2 border-gray-200 px-3">
-              <option value="">보내지 않음 (일반 모델)</option>
-              <option value="minimal">minimal</option>
-              <option value="low">low</option>
+              <option value="">보내지 않음 (일반 모델 / 모델 기본값)</option>
+              <option value="none">none — 추론 없음 (가장 빠르고 토큰 최소, 지원 모델만)</option>
+              <option value="low">low — 수업용 추천</option>
               <option value="medium">medium</option>
+              <option value="high">high — 토큰 많이 씀</option>
+              <option value="xhigh">xhigh — 토큰 매우 많이 씀</option>
             </select>
-            <span className="text-xs text-gray-500">일반 모델에 이 값을 보내면 오류가 나요. 모델이 지원할 때만 고르세요.</span>
+            <span className="text-xs text-gray-500">추론 강도가 높을수록 앱 품질은 좋아지지만 토큰(비용)과 시간이 크게 늘어요. 모델이 지원하지 않는 값을 고르면 오류가 나니, 오류가 나면 low로 바꿔 보세요.</span>
           </label>
           <label className="flex flex-col gap-1">
             <span className="font-semibold">학생 1인당 1분 호출 수</span>

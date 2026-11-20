@@ -60,7 +60,8 @@ export async function streamChat(
     messages,
     stream: true,
     stream_options: { include_usage: true },
-    max_completion_tokens: 16000,
+    // 추론 토큰도 이 한도에 포함되므로 넉넉하게 (앱 코드가 중간에 잘리지 않도록)
+    max_completion_tokens: 32000,
   };
   if (settings.reasoningEffort) body.reasoning_effort = settings.reasoningEffort;
 
