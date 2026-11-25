@@ -91,7 +91,27 @@
   function lim(step) { return step.t === "nums" ? CFG.limN : CFG.limC; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function M(tex) { return "\\(\\displaystyle " + tex + "\\)"; }
-  function optHtml(o) { return o.indexOf("T:") === 0 ? o.slice(2) : M(o); }
+  /* 긴 수식을 조각으로 나눠, 좁은 화면에서는 글처럼 다음 줄로 넘어가게 한다.
+     괄호 밖에 있는 '=' 앞, '+\int' 앞, ',\quad' 에서 나눈다. 조각 하나가 그래도 넓으면 CSS가 칸에 맞게 줄인다. */
+  function splitTex(tex) {
+    var out = [], cur = "", depth = 0, i = 0, s = String(tex);
+    while (i < s.length) {
+      var ch = s.charAt(i);
+      if (ch === "," && s.substr(i, 6) === ",\\quad" && depth === 0) { out.push(cur); cur = ""; i += 6; continue; }
+      if (ch === "{") depth++;
+      if (ch === "}") depth--;
+      if (depth === 0 && cur && (ch === "=" || (ch === "+" && s.substr(i + 1, 4) === "\\int"))) { out.push(cur); cur = ""; }
+      cur += ch; i++;
+    }
+    if (cur) out.push(cur);
+    return out.filter(function (x) { return x.trim(); });
+  }
+  function MX(tex) {
+    return String(tex).split(",\\quad").map(function (g) {
+      return '<span class="mgrp">' + splitTex(g).map(function (t) { return '<span class="mpc">' + M(t) + "</span>"; }).join("") + "</span>";
+    }).join("");
+  }
+  function optHtml(o) { return o.indexOf("T:") === 0 ? o.slice(2) : MX(o); }
   function qHtml(p) { return '<div class="q text">' + p.text + "</div>" + (p.fig ? figHtml(p.fig) : ""); }
   function typeset(el) { if (window.__mjReady && MathJax.typesetPromise) MathJax.typesetPromise([el || app]).catch(function () {}); }
   window.__typeset = function () { typeset(); };
@@ -246,7 +266,8 @@
       h += '<line class="nl-leg c' + (k % 3) + '" x1="' + x1.toFixed(1) + '" y1="' + y + '" x2="' + x2.toFixed(1) + '" y2="' + y + '" marker-end="url(#nlHead' + (k % 3) + ')"/>' +
         '<line class="nl-drop" x1="' + x1.toFixed(1) + '" y1="' + y + '" x2="' + x1.toFixed(1) + '" y2="' + base + '"/>';
     });
-    if (cur != null) h += '<circle class="nl-pt" cx="' + X(cur).toFixed(1) + '" cy="' + base + '" r="8"/><text class="nl-p" x="' + X(cur).toFixed(1) + '" y="' + (base + 4) + '">P</text>';
+    if (cur != null) h += '<circle class="nl-pt" cx="' + X(cur).toFixed(1) + '" cy="' + base + '" r="8"/><text class="nl-p" x="' + X(cur).toFixed(1) + '" y="' + (base + 4) + '">P</text>' +
+      '<g class="nl-face" transform="translate(' + X(cur).toFixed(1) + "," + base + ')"><circle cx="-3.2" cy="-1.5" r="1.6"/><circle cx="3.2" cy="-1.5" r="1.6"/><path d="M-2.2,2 q2.2,2.2 4.4,0"/></g>';
     var defs = '<defs><marker id="nlArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" class="nl-arrhead"/></marker>' +
       [0, 1, 2].map(function (k) { return '<marker id="nlHead' + k + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10z" class="nl-head c' + k + '"/></marker>'; }).join("") + "</defs>";
     return '<svg class="nl" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="수직선 위의 움직임' + (unit ? " (단위 " + unit + ")" : "") + '">' + defs + h + "</svg>";
@@ -345,11 +366,12 @@
      filled = 색을 채울 구간 수, at = 버스가 선 정류장(0 출발 … MAIN 종점, MAIN+1 보너스), star = 보너스 완료
      ==================================================================== */
   var RT = { X0: 36, X1: 316, Y: 118 };
-  var STRIP = ["#0F6B78", "#2A8794", "#4BA2AD", "#7DBFC6"];
+  var STRIP = ["#B9AEFF", "#FFB3CE", "#8EE3C8", "#FFD58A"];
   function stopX(j) { return j > MAIN ? RT.X1 + 34 : RT.X0 + (RT.X1 - RT.X0) * j / MAIN; }
   function busSvg(x) {
     return '<g class="rt-bus" id="rtBus" style="transform:translate(' + x + 'px,' + (RT.Y - 13) + 'px)"><rect class="b-body" x="-19" y="-14" width="38" height="20" rx="5"/>' +
-      '<rect class="b-win" x="-14" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="-4" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="6" y="-10" width="9" height="7" rx="1.5"/>' +
+      '<rect class="b-win" x="-14" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="-4" y="-10" width="8" height="7" rx="1.5"/>' +
+      '<ellipse class="b-blush" cx="7" cy="1.5" rx="2.4" ry="1.4"/><circle class="b-eye" cx="10.5" cy="-1.5" r="1.7"/><circle class="b-eye" cx="15.5" cy="-1.5" r="1.7"/><path class="b-mouth" d="M11.5,1.8 q1.5,1.6 3,0"/>' +
       '<circle class="b-wheel" cx="-10" cy="7" r="4"/><circle class="b-wheel" cx="10" cy="7" r="4"/></g>';
   }
   function routeSvg(filled, at, star) {
@@ -496,12 +518,12 @@
 
   /* ---------- 문제 화면 ---------- */
   /* 소문제마다 색을 달리해 ①②③이 서로 다른 문제로 보이게 한다(진행 막대, 문제 카드, 내 풀이에 같은 색) */
-  var SC = ["#0F6B78", "#D2541B", "#1B7F4A", "#7A4FB0", "#B07A00", "#B0336B"];
+  var SC = ["#7B6AF0", "#F2578E", "#1FA67F", "#E89212", "#3E9BE0", "#B565E0"];
   function sc(k) { return "--sc:" + SC[k % SC.length]; }
   function stripMark(t) { return String(t || "").replace(/^[①-⑩]\s*/, ""); }
   function logHtml(s, markNew, p) {
     return s.log.map(function (l, k) {
-      var body = l.k === "m" ? M(l.v) : l.v, cap = p && p.steps[k] ? '<small class="cap">' + stripMark(p.steps[k].p) + "</small>" : "";
+      var body = l.k === "m" ? MX(l.v) : l.v, cap = p && p.steps[k] ? '<small class="cap">' + stripMark(p.steps[k].p) + "</small>" : "";
       return '<div class="logline' + (markNew && k === s.log.length - 1 ? " new" : "") + '" style="' + sc(k) + '"><i>' + MARK[k] + "</i><div>" + cap + "<div>" + body + "</div></div></div>";
     }).join("");
   }
@@ -559,7 +581,7 @@
           return '<button class="opt' + (step.o[i].indexOf("T:") === 0 ? " t" : "") + (w ? " wrong" : "") + '" data-lockable data-opt="' + i + '"' + (w ? ' data-off="1" disabled' : "") + ">" + optHtml(step.o[i]) + "</button>";
         }).join("") + "</div>";
       } else {
-        if (step.show) right += '<div class="formula">' + M(step.show.replace(/\((가|나|다)\)/g, "\\boxed{\\text{($1)}}")) + "</div>";
+        if (step.show) right += '<div class="formula">' + MX(step.show.replace(/\((가|나|다)\)/g, "\\boxed{\\text{($1)}}")) + "</div>";
         right += '<div class="fields' + (step.show ? " few" : "") + '">' + step.f.map(function (f, i) {
           var cls = ui.ok[i] ? " ok" : ui.no[i] ? " no" : i === ui.active ? " active" : "";
           return '<button class="field' + cls + '" data-field="' + i + '"><span>' + M(f[0] + " =") + '</span><span class="val">' + esc(ui.vals[i] || "") + "</span></button>";
@@ -769,7 +791,7 @@
             lastK = -1; return;
           }
           var p = view(bp, e.ver != null ? e.ver : a.v), step = p.steps[e.k]; if (!step) return;
-          if (e.k !== lastK || e.ver !== lastVer) body += '<div class="ans-q" style="' + sc(e.k) + '"><i>' + MARK[e.k] + "</i>" + stripMark(step.p) + "</div>";
+          if (e.k !== lastK || e.ver !== lastVer) body += '<div class="ans-q" style="' + sc(e.k) + '"><i>' + MARK[e.k] + "</i><span>" + stripMark(step.p) + "</span></div>";
           lastK = e.k; lastVer = e.ver;
           var line, tag = "";
           if (e.o != null) {
@@ -779,12 +801,12 @@
             line = step.f.map(function (f, i) {
               var v = (e.v || [])[i], good = same(v, f[1]), tr = f[2] || {};
               if (!good && !tag) Object.keys(tr).forEach(function (key) { if (!tag && same(v, key)) tag = tr[key][0]; });
-              return '<span class="' + (good ? "" : "bad") + '">' + M(f[0] + "=" + (parse(v) ? texNum(v) : "\\text{" + esc(v || "?") + "}")) + "</span>";
+              return '<span class="mpc ' + (good ? "" : "bad") + '">' + M(f[0] + "=" + (parse(v) ? texNum(v) : "\\text{" + esc(v || "?") + "}")) + "</span>";
             }).join(" &nbsp; ");
           }
           body += '<div class="ans-a ' + (e.ok ? "ok" : "no") + '"><b>' + (e.ok ? "✓" : "✗") + "</b><div>" + line + (tag ? ' <span class="tag">' + esc(MIS[tag] || tag) + "</span>" : "") + "</div></div>";
         });
-        if (!ans.length && a.l) a.l.forEach(function (v, k) { body += '<div class="ans-a ok"><b>✓</b><div>' + MARK[k] + " " + M(v) + "</div></div>"; });
+        if (!ans.length && a.l) a.l.forEach(function (v, k) { body += '<div class="ans-a ok"><b>✓</b><div>' + MARK[k] + " " + MX(v) + "</div></div>"; });
         var wrong = ans.filter(function (e) { return !e.ok && !e.r; }).length;
         h += '<details class="ans-card"' + (wrong ? " open" : "") + "><summary><b>" + c.name + " · " + esc(bp.road) + '</b><span class="badge' + (a.d ? " ok" : "") + '">' + (a.d ? "완료" : "푸는 중") + "</span>" +
           (wrong ? '<span class="badge">틀린 답 ' + wrong + "번</span>" : "") + (bp.variants ? "<small>숫자 " + ((a.v || 0) + 1) + "번</small>" : "") + "</summary>" +
@@ -938,7 +960,7 @@
     var ctx = canvas.getContext("2d"), dpr = Math.min(window.devicePixelRatio || 1, 2), W, H, t0 = 0, parts = [];
     function size() { W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
     size();
-    var cols = ["#D2541B", "#0F6B78", "#F2B705", "#1B7F4A", "#FFFFFF", "#5CC4D3"];
+    var cols = ["#FF8FB1", "#9B8CFF", "#FFD58A", "#7EDCC0", "#FFFFFF", "#FFB3CE"];
     for (var i = 0; i < amount; i++) parts.push({ x: W / 2 + (Math.random() - .5) * W * .5, y: H * .45, vx: (Math.random() - .5) * 13, vy: -6 - Math.random() * 11,
       s: 6 + Math.random() * 7, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[i % cols.length] });
     function frame(t) {

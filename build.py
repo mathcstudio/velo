@@ -3,7 +3,7 @@ import io
 r=lambda f: io.open('src/'+f,encoding='utf-8').read()
 css,lesson,appjs=r('app.css'),r('lesson.js'),r('app.js')
 for n,js in (('lesson',lesson),('app',appjs)): assert '</script' not in js, n
-FONT='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;500;700&display=swap">'
+FONT='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">'
 MJCFG='''<script>
 window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]] }, svg: { fontCache: "global" }, startup: { typeset: false,
   ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { window.__mjReady = true; window.__typeset && window.__typeset(); }); } } };
