@@ -496,6 +496,20 @@ ol.how3 { margin: 0 0 12px; padding-left: 1.4em; } ol.how3 li { margin-bottom: 6
 .ans-a.no { background: var(--bad-soft); } .ans-a.no b { color: var(--bad); }
 .ans-a .bad { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 4px; }
 .ans-reset { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--flag); border-top: 1.5px dashed var(--flag); padding-top: 6px; }
+
+/* 개념 설명: 예측하고 보기 */
+.predict { border: 2px dashed var(--flag); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--flag) 5%, var(--surface)); }
+.predict .pq { margin: 0; font-weight: 700; font-size: 17px; word-break: keep-all; }
+.popts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.popt { border: 2px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; min-height: 52px; font-size: 16px; text-align: left; }
+.popt.on { border-color: var(--flag); background: color-mix(in srgb, var(--flag) 14%, var(--surface)); font-weight: 700; }
+.popt:disabled { cursor: default; }
+.popt:disabled:not(.on) { opacity: .55; }
+.presult { margin: 0; font-size: 15px; color: var(--muted); }
+.presult.ok { color: var(--good); font-weight: 700; }
+.presult.no { color: var(--bad); }
+.gate-note { margin: 0; text-align: right; font-size: 14px; font-weight: 700; color: var(--flag); }
+.btn:disabled[data-act=lnext], .btn:disabled[data-act=ldone] { opacity: .45; }
 </style>
 <script src="config.js"></script>
 </head>
@@ -672,6 +686,32 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
       ] };
   }
 
+  /* 스스로 판단하기: 그래프도, ‘속도가 0인 시각을 구하라’는 안내도 없다. 같은 속도에서
+     (가) 방향이 바뀌지 않는 구간과 (나) 방향이 바뀌는 구간을 비교해 구간을 나눌지 학생이 정한다. */
+  function S5(a, b, T1, T2) {
+    var s = a / b, d1 = a * T1 - b * T1 * T1 / 2, A1 = a * s / 2, A2 = (b * T2 - a) * (T2 - s) / 2, d2 = A1 + A2, dx2 = A1 - A2;
+    var vt = "v(t)=" + a + "-" + (b === 1 ? "" : b) + "t";
+    return { text: "직선 도로 위를 달리는 자전거의 시각 " + m("t") + "초에서의 속도가 " + m(vt) + " (m/s)입니다. 다음을 구하시오.<br>(가) " + m("t=0") + "부터 " + m("t=" + T1) + "까지 움직인 거리<br>(나) " + m("t=0") + "부터 " + m("t=" + T2) + "까지 움직인 거리",
+      steps: [
+        { t: "choice", p: "① (가)를 구할 때, 구간을 나누어야 할까요?",
+          o: ["T:나누지 않는다. \\(0\\le t\\le " + T1 + "\\)에서는 속도가 항상 0 이상이다.", "T:나눈다. 속도가 0이 되는 \\(t=" + s + "\\)에서 나눈다.", "T:나눈다. 구간의 가운데에서 나눈다.", "T:움직인 거리는 언제나 구간을 나누어야 한다."],
+          w: [null, "\\(t=" + s + "\\)는 (가)의 구간 \\(0\\le t\\le " + T1 + "\\) 밖에 있습니다. 구간 안에서 속도의 부호가 바뀌는지만 봅니다.", "가운데에서 나눌 이유가 없습니다. 나누는 곳은 속도의 부호가 바뀌는 곳뿐입니다.", "속도의 부호가 바뀌지 않으면 나누지 않아도 됩니다. 그때는 움직인 거리 = 위치의 변화량입니다."],
+          tg: [null, "stop", "split", "split"],
+          h: "속도가 0이 되는 시각이 구하는 구간 안에 있을 때만 나눕니다. \\(t=0\\)과 \\(t=" + T1 + "\\)을 넣어 속도의 부호를 확인해 보세요.", ask: "\\(v(0)\\)과 \\(v(" + T1 + ")\\)은 각각 양수인가요, 음수인가요?" },
+        { t: "nums", p: "② (가) \\(t=0\\)부터 \\(t=" + T1 + "\\)까지 움직인 거리를 구하세요.",
+          f: [["\\text{(가) 움직인 거리}", String(d1)]],
+          h: "방향이 바뀌지 않으므로 \\(\\int_{0}^{" + T1 + "}(" + a + "-" + (b === 1 ? "" : b) + "t)\\,dt\\)를 그대로 계산합니다. 그래프를 그리면 사다리꼴의 넓이입니다.", ask: "그래프를 공책에 그려 보았나요? 그 구간의 넓이를 구하면 됩니다." },
+        { t: "choice", p: "③ (나)를 구할 때는 어떻게 할까요?",
+          o: ["T:속도가 0이 되는 \\(t=" + s + "\\)에서 구간을 나눈다.", "T:나누지 않고 \\(\\int_{0}^{" + T2 + "}v(t)\\,dt\\)를 계산한다.", "T:\\(t=" + T1 + "\\)에서 구간을 나눈다.", "T:\\(\\left|\\int_{0}^{" + T2 + "}v(t)\\,dt\\right|\\)를 계산한다."],
+          w: [null, "그것은 위치의 변화량입니다. 이 구간 안에서는 자전거가 멈췄다가 방향을 바꿉니다.", "\\(t=" + T1 + "\\)은 (가)의 끝일 뿐, 속도의 부호가 바뀌는 곳이 아닙니다.", "계산한 다음 절댓값을 씌우면 앞뒤로 간 것이 서로 지워진 뒤입니다. 절댓값은 속도에 먼저 씌웁니다."],
+          tg: [null, "split", "stop", "sign"],
+          h: "\\(" + vt + "=0\\)이 되는 시각이 \\(0\\)과 \\(" + T2 + "\\) 사이에 있는지 확인합니다.", ask: "\\(v(" + T2 + ")\\)은 양수인가요, 음수인가요?" },
+        { t: "nums", p: "④ (나) \\(t=0\\)부터 \\(t=" + T2 + "\\)까지 움직인 거리를 구하세요.",
+          f: [["\\text{(나) 움직인 거리}", String(d2), traps(d2, [[dx2, "split", "구간을 나누지 않고 계산했습니다. 그것은 위치의 변화량입니다."], [-dx2, "split", "구간을 나누지 않고 계산했습니다. 두 조각을 각각 양수로 구해 더하세요."], [A1, "split", "멈춘 뒤 뒤로 간 부분을 빠뜨렸습니다."]])]],
+          h: "\\(t=" + s + "\\)까지 앞으로 간 거리 + 그 뒤로 뒤로 간 거리", ask: "앞으로 간 거리와 뒤로 간 거리를 따로 구했나요?" }
+      ] };
+  }
+
   window.CAMPS = [
     { key: "M", name: "1단계", topic: "왜 배울까?", tip: "위치의 변화량은 처음과 나중만, 움직인 거리는 실제로 움직인 길이 전부",
       ex: "2\\to7\\to4:\\ \\text{위치의 변화량}=4-2=2,\\ \\ \\text{움직인 거리}=5+3=8",
@@ -699,7 +739,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
       ] },
     { key: "P", name: "3단계", topic: "속도를 적분하면 위치의 변화량", tip: "속도 그래프의 위쪽 넓이는 +, 아래쪽 넓이는 −로 더한 값 = 위치의 변화량",
       ex: "\\int_{a}^{b}v(t)\\,dt=(\\text{위쪽 넓이})-(\\text{아래쪽 넓이}),\\quad x(b)=x(a)+\\int_{a}^{b}v(t)\\,dt",
-      tiers: [{ label: "그래프 넓이로", ids: ["P1", "P2"] }, { label: "식으로 계산", ids: ["P3", "P4"] }],
+      tiers: [{ label: "속도가 음수일 때", ids: ["P1"] }, { label: "출발점이 0이 아닐 때", ids: ["P2"] }, { label: "식으로 계산", ids: ["P3", "P4"] }],
       probs: [
         { id: "P1", pts: 10, road: "계단 모양 그래프", short: "앞으로 갔다 뒤로", variants: [P1(3, -1), P1(4, -1), P1(3, -2)] },
         { id: "P2", pts: 20, road: "출발점이 0이 아닐 때", short: "처음 위치 + 변화량", variants: [P2(6, 2, 3, 5), P2(8, 2, 4, 3), P2(6, 3, 2, 4)] },
@@ -738,9 +778,10 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
       ] },
     { key: "S", name: "4단계", topic: "|속도|를 적분하면 움직인 거리", tip: "속도가 0인 시각에서 구간을 나누고, 넓이를 모두 양수로 더한다",
       ex: "\\int_{0}^{4}|4-2t|\\,dt=\\int_{0}^{2}(4-2t)\\,dt+\\int_{2}^{4}(2t-4)\\,dt=4+4=8",
-      tiers: [{ label: "그래프 넓이로", ids: ["S1", "S2"] }, { label: "식으로 계산", ids: ["S3", "S4"] }],
+      tiers: [{ label: "그래프 넓이로", ids: ["S1", "S2"] }, { label: "식으로 계산", ids: ["S3", "S4"] }, { label: "스스로 판단하기", ids: ["S5"] }],
       probs: [
         { id: "S1", pts: 20, road: "방향을 바꾸는 점", short: "직선 속도, 방향 바뀜", variants: [S1(4, 2, 4), S1(6, 2, 4), S1(8, 4, 3)] },
+        { id: "S5", pts: 30, road: "나눌까, 말까?", short: "구간을 나눌지 스스로 판단", variants: [S5(4, 2, 1, 4), S5(6, 2, 2, 4), S5(8, 4, 1, 3)] },
         { id: "S2", pts: 20, road: "쏘아 올린 공", short: "v=20−10t, 0→3",
           text: "지면에서 " + m("20\\text{ m/s}") + "의 속도로 지면과 수직으로 쏘아 올린 공의 " + m("t") + "초 후의 속도가 " + m("v(t)=20-10t") + " (m/s)입니다. " + m("(0\\le t\\le 3)") + " <small>(교과서 예제 2)</small>",
           fig: { poly: [20, -10], t1: 3 },
@@ -839,7 +880,8 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
   window.LEARN = {
     M: [
       { h: "편의점에 다녀왔다", body: "<p>하늘이가 집에서 출발해 300 m 떨어진 편의점까지 걸어갔습니다. 그런데 지갑을 두고 와서 다시 집으로 돌아왔어요.</p><p>▶ 버튼을 눌러 하늘이가 움직이는 모습을 보세요. 아래 숫자 두 개가 어떻게 달라지는지 잘 보세요.</p>",
-        w: { pc: [[0, 3, 100], [3, 6, -100]], t1: 6, x0: 0, tu: "분", xu: "m", vu: "m/분", marks: [[0, "집"], [300, "편의점"]], show: ["x", "d", "s"] } },
+        w: { pc: [[0, 3, 100], [3, 6, -100]], t1: 6, x0: 0, tu: "분", xu: "m", vu: "m/분", marks: [[0, "집"], [300, "편의점"]], show: ["x", "d", "s"] },
+        ask: { q: "▶ 누르기 전에 예측해 보세요. 하늘이가 집에 다시 돌아왔을 때 두 값은?", o: ["위치의 변화량 600 m, 움직인 거리 600 m", "위치의 변화량 0 m, 움직인 거리 600 m", "위치의 변화량 0 m, 움직인 거리 0 m", "위치의 변화량 300 m, 움직인 거리 600 m"], a: 1 } },
       { h: "두 가지 질문, 두 가지 답", body: "<table class=\"cmp\"><tr><th>" + DX + "</th><td>처음 위치에서 나중 위치까지 <b>얼마나 달라졌나?</b><br>= (나중 위치) − (처음 위치)<br>하늘이: 0 − 0 = <b>0 m</b></td></tr>" +
         "<tr><th>" + DS + "</th><td>실제로 <b>얼마나 걸었나?</b><br>= 간 길 + 돌아온 길<br>하늘이: 300 + 300 = <b>600 m</b></td></tr></table>" +
         "<p>• " + DX + "는 <b>방향</b>을 생각합니다. 그래서 음수가 될 수도 있어요.<br>• " + DS + "는 방향과 관계없이 <b>모두 더합니다</b>. 그래서 항상 0 이상이에요.</p><p class=\"aside\">자동차 계기판의 ‘주행 거리’는 후진해도 줄어들지 않죠? 그게 움직인 거리입니다.</p>" },
@@ -856,17 +898,21 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     ],
     P: [
       { h: "속도가 일정할 때", body: "<p>점이 매초 3 m씩 4초 동안 움직이면 3 × 4 = 12 m 갑니다.</p><p>속도 그래프에서 보면 이 12는 <b>색칠된 직사각형의 넓이</b>입니다. ▶를 눌러 보세요.</p>",
-        w: { pc: [[0, 4, 3]], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] } },
+        w: { pc: [[0, 4, 3]], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] },
+        ask: { q: "▶ 누르기 전에 예측해 보세요. 4초 동안 위치의 변화량은?", o: ["7 m", "3 m", "12 m", "4 m"], a: 2 } },
       { h: "속도가 변해도 넓이!", body: "<p>제동하는 버스의 속도 " + m("v(t)=12-6t") + "를 보세요. 속도가 줄어도 <b>그래프 아래 넓이 = 위치의 변화량</b>입니다.</p><p>넓이는 삼각형: " + m("\\tfrac12\\times2\\times12=12") + ", 정적분으로도 " + m("\\int_{0}^{2}(12-6t)\\,dt=12") + ".</p>",
-        w: { poly: [12, -6], t1: 2, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] } },
+        w: { poly: [12, -6], t1: 2, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] },
+        ask: { q: "▶ 누르기 전에 예측해 보세요. 처음 속도 12 m/s에서 2초 동안 고르게 느려져 멈춘 버스. 위치의 변화량은?", o: ["12 m", "24 m", "6 m", "0 m"], a: 0 } },
       { h: "속도가 음수이면 뒤로 간다", body: "<p>속도가 <b>음수</b>이면 점은 <b>뒤로(음의 방향으로)</b> 갑니다. 그래프에서는 " + m("t") + "축 <b>아래쪽</b> 넓이가 생기고, 정적분에서는 <b>빼집니다</b>.</p><p>" + DX + " = (위쪽 넓이) − (아래쪽 넓이) = 6 − 2 = 4</p>",
-        w: { pc: [[0, 2, 3], [2, 4, -1]], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] } },
+        w: { pc: [[0, 2, 3], [2, 4, -1]], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] },
+        ask: { q: "▶ 누르기 전에 예측해 보세요. 2초 동안 속도 3, 그다음 2초 동안 속도 −1. 4초 동안 위치의 변화량은?", o: ["8 m", "6 m", "−2 m", "4 m"], a: 3 } },
       { h: "정리", body: "<div class=\"big\">" + D("\\int_{a}^{b}v(t)\\,dt=\\text{위치의 변화량}") + "</div><p>출발점이 0이 아니면 처음 위치를 더합니다.</p><div class=\"big\">" + D("(\\text{나중 위치})=(\\text{처음 위치})+\\int_{a}^{b}v(t)\\,dt") + "</div>" }
     ],
     S: [
       { h: "넓이 단원 기억나나요?", body: "<p>‘01 넓이’에서 " + m("x") + "축 아래에 있는 부분의 넓이를 구할 때, 함수에 절댓값을 씌워 <b>양수로</b> 셌습니다.</p><div class=\"big\">" + D("S=\\int_{a}^{b}|f(x)|\\,dx") + "</div><p>움직인 거리도 똑같습니다. 뒤로 간 것도 ‘움직인’ 것이니까 빼지 않고 <b>더합니다</b>.</p>" },
       { h: "위치의 변화량 vs 움직인 거리", body: "<p>속도 " + m("v(t)=4-2t") + " (0 ≤ t ≤ 4). 2초에 멈추고 방향을 바꿉니다. ▶를 눌러 두 숫자를 비교하세요.</p>",
-        w: { poly: [4, -2], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d", "s"] } },
+        w: { poly: [4, -2], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d", "s"] },
+        ask: { q: "▶ 누르기 전에 예측해 보세요. 4초 동안 위치의 변화량과 움직인 거리는?", o: ["위치의 변화량 8 m, 움직인 거리 8 m", "위치의 변화량 8 m, 움직인 거리 0 m", "위치의 변화량 0 m, 움직인 거리 8 m", "위치의 변화량 0 m, 움직인 거리 0 m"], a: 2 } },
       { h: "움직인 거리 구하는 3단계", body: "<ol class=\"how3\"><li><b>멈춘 순간 찾기</b>: " + m("v(t)=0") + "이 되는 시각 (방향이 바뀌는 순간)</li><li><b>구간 나누기</b>: 그 시각에서 구간을 나눈다</li><li><b>모두 양수로 더하기</b>: 속도가 음수인 구간은 −를 붙여 양수로</li></ol>" +
         "<table class=\"cmp\"><tr><th>" + DX + "</th><td>" + D("\\int_{a}^{b}v(t)\\,dt") + "<br>위쪽 넓이 <b>−</b> 아래쪽 넓이</td></tr><tr><th>" + DS + "</th><td>" + D("\\int_{a}^{b}|v(t)|\\,dt") + "<br>위쪽 넓이 <b>+</b> 아래쪽 넓이</td></tr></table>" }
     ]
@@ -909,7 +955,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
   CAMPS.forEach(function (c, ci) { if (c.bonus) BONUSES.push(ci); else SUMMIT = ci; });
   var MAIN = SUMMIT + 1;
   /* 서버 설정의 기본값. limC = 선택형 기회, limN = 입력형 기회, wait = 오답 뒤 제출을 막는 시간(초), vary = 학생마다 다른 숫자 */
-  var DEFAULTS = { limC: 3, limN: 5, wait: 0, vary: true };
+  var DEFAULTS = { limC: 2, limN: 5, wait: 5, vary: true };
   function withDefaults(o) { var c = {}, k; for (k in DEFAULTS) c[k] = DEFAULTS[k]; for (k in (o || {})) if (o[k] != null && DEFAULTS.hasOwnProperty(k)) c[k] = o[k]; return c; }
   var CFG = withDefaults();
 
@@ -918,7 +964,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
   try { var sv = JSON.parse(localStorage.getItem(KEY) || "null"); if (sv && sv.probs) S = sv; } catch (e) {}
   S.view = "intro"; S.cur = null;
   function norm() {
-    S.cele = S.cele || {}; S.outbox = S.outbox || []; S.rev = S.rev || 0; S.probs = S.probs || {}; S.note = S.note || {}; S.learn = S.learn || {};
+    S.cele = S.cele || {}; S.outbox = S.outbox || []; S.rev = S.rev || 0; S.probs = S.probs || {}; S.note = S.note || {}; S.learn = S.learn || {}; S.pred = S.pred || {}; S.seen = S.seen || {};
     S.final = S.final || { done: false, ok: {}, tries: {}, vals: {}, miss: 0 };
   }
   norm();
@@ -978,7 +1024,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     for (var k = 0; k < sts.length; k++) if (sts[k].list.indexOf(p) >= 0) return stageOpen(c, k);
     return false;
   }
-  function probsPassed(ci) { return stages(CAMPS[ci]).every(stageDone); }
+  function probsPassed(ci) { return !!S.cele["c:" + CAMPS[ci].key] || stages(CAMPS[ci]).every(stageDone); }
   /* 마지막 단계는 문제에 더해 마지막 확인(핵심 정리 빈칸)까지 통과해야 한다 */
   function passed(ci) { return probsPassed(ci) && (ci !== SUMMIT || S.final.done); }
   function progress() { return { c: CAMPS.map(function (_, ci) { return probsPassed(ci) ? 1 : 0; }), f: S.final.done ? 1 : 0 }; }
@@ -1185,12 +1231,12 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     legs.push([from, d.X[k]]);
     return legs;
   }
-  function mwHtml(w) {
+  function mwHtml(w, locked) {
     var stat = { x: ["x", "위치"], d: ["dx", "위치의 변화량"], s: ["ds", "움직인 거리"] };
     return '<div class="mw"><div class="mw-line"></div><div class="mw-stats">' + (w.show || ["x", "d"]).map(function (k) {
       return '<div class="mw-st ' + stat[k][0] + '"><small>' + stat[k][1] + '</small><b data-stat="' + k + '">0</b></div>';
-    }).join("") + '</div><div class="mw-graph"></div><div class="mw-ctl"><button class="btn primary small" data-act="play">▶ 재생</button>' +
-      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub><span class="mw-t">t = 0</span></div></div>';
+    }).join("") + '</div><div class="mw-graph"></div><div class="mw-ctl"><button class="btn primary small" data-act="play"' + (locked ? " disabled" : "") + '>▶ 재생</button>' +
+      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub' + (locked ? " disabled" : "") + '><span class="mw-t">t = 0</span></div></div>';
   }
   function mwDraw(k) {
     if (!MW) return; var d = MW.d, el = MW.el, w = d.w; k = Math.max(0, Math.min(d.N, Math.round(k))); MW.k = k;
@@ -1201,6 +1247,20 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     put("x", d.X[k]); put("d", d.X[k] - d.X[0], true); put("s", d.Sd[k]);
     el.querySelector(".mw-t").textContent = "t = " + fmt(t) + (w.tu ? " " + w.tu : "");
     var sl = el.querySelector("[data-scrub]"); if (sl && +sl.value !== k) sl.value = k;
+    if (k === d.N) learnEnd();
+  }
+  function predResult(ask, pred) {
+    return pred === ask.a ? "✓ 예측이 맞았습니다! 왜 그런지 아래 숫자와 그래프로 다시 확인해 보세요." :
+      "내 예측: " + esc(ask.o[pred]) + " → 실제: <b>" + esc(ask.o[ask.a]) + "</b>. 왜 다른지 수직선의 화살표와 그래프의 색칠된 넓이를 비교해 보세요.";
+  }
+  /* 그림을 끝까지 본 순간: 예측과 실제를 비교해 보여 주고, 다음 장 버튼을 연다(화면 전체를 다시 그리지 않는다) */
+  function learnEnd() {
+    var pk = S.cur + ":" + ui.page, pg = (LEARN[S.cur] || [])[ui.page]; if (!pg) return;
+    if (!S.seen[pk]) { S.seen[pk] = Date.now(); dirty = true; save(); }
+    Array.prototype.forEach.call(app.querySelectorAll("[data-act=lnext], [data-act=ldone]"), function (b) { b.disabled = false; });
+    var gn = app.querySelector(".gate-note"); if (gn) gn.remove();
+    var pr = app.querySelector(".presult"), pred = S.pred[pk];
+    if (pr && pg.ask && pred != null) { pr.innerHTML = predResult(pg.ask, pred); pr.className = "presult " + (pred === pg.ask.a ? "ok" : "no"); }
   }
   function mwBind() {
     stopPlay(); MW = null;
@@ -1366,10 +1426,17 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
   function vLearn() {
     var c = CAMPS[BYKEY[S.cur]], pages = LEARN[S.cur] || [], k = Math.min(ui.page, pages.length - 1), pg = pages[k], last = k === pages.length - 1;
     var dots = pages.map(function (_, i) { return '<i class="' + (i === k ? "on" : i < k ? "seen" : "") + '"></i>'; }).join("");
+    var pk = S.cur + ":" + k, ask = pg.ask, pred = S.pred[pk], seen = !!S.seen[pk], gate = !!pg.w && !learned(c);
+    var askHtml = ask ? '<div class="predict"><p class="pq">' + ask.q + '</p><div class="popts">' + ask.o.map(function (o, i) {
+      return '<button class="popt' + (pred === i ? " on" : "") + '" data-pred="' + i + '"' + (pred != null ? " disabled" : "") + ">" + esc(o) + "</button>";
+    }).join("") + '</div><p class="presult' + (seen && pred != null ? (pred === ask.a ? " ok" : " no") : "") + '" role="status">' +
+      (pred == null ? "하나를 고르면 ▶ 재생이 열립니다." : seen ? predResult(ask, pred) : "좋습니다. 이제 ▶를 눌러 확인해 보세요.") + "</p></div>" : "";
+    var lockNext = gate && !seen;
     return bar(true) + '<div class="card learn"><div class="learn-head"><p class="kicker">' + c.name + " · " + c.topic + '</p><span class="dots" aria-label="' + (k + 1) + " / " + pages.length + '장">' + dots + "</span></div>" +
-      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + (pg.w ? mwHtml(pg.w) : "") +
+      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + askHtml + (pg.w ? mwHtml(pg.w, gate && ask && pred == null) : "") +
+      (lockNext ? '<p class="gate-note">그림을 끝까지 보면 다음으로 넘어갈 수 있습니다.</p>' : "") +
       '<div class="learn-nav"><button class="btn" data-act="lprev"' + (k ? "" : " disabled") + '>← 이전</button>' +
-      (last ? '<button class="btn primary" data-act="ldone">' + (learned(c) ? "학습 지도로" : "문제 풀러 가기") + "</button>" : '<button class="btn primary" data-act="lnext">다음 →</button>') + "</div></div>";
+      (last ? '<button class="btn primary" data-act="ldone"' + (lockNext ? " disabled" : "") + ">" + (learned(c) ? "학습 지도로" : "문제 풀러 가기") + "</button>" : '<button class="btn primary" data-act="lnext"' + (lockNext ? " disabled" : "") + ">다음 →</button>") + "</div></div>";
   }
 
   /* ---------- 문제 화면 ---------- */
@@ -1616,11 +1683,11 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     var scoped = adm.open && groups[adm.open] ? groups[adm.open] : null, scopeList = scoped ? scoped.list : adm.data, scopeName = scoped ? scoped.label : "전체";
     if (scoped) {
       var list = scoped.list.slice().sort(function (a, b) { return String(a.sid).localeCompare(String(b.sid)); });
-      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>자주 보인 오개념</th><th>답안</th></tr></thead><tbody>' +
+      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>첫 시도 정답률</th><th>자주 보인 오개념</th><th>답안</th></tr></thead><tbody>' +
         list.map(function (s) {
           var last = "아직 없음"; STAGES.forEach(function (sg) { if (sg.get(s)) last = sg.name; });
           var cnt = STAGES.filter(function (sg) { return sg.get(s); }).length, who = s.sid + " " + s.name, tg = tagsOf(s), top = Object.keys(tg).sort(function (a, b) { return tg[b] - tg[a]; }).slice(0, 2);
-          return "<tr" + (adm.stu === who ? ' class="sel"' : "") + "><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" +
+          return "<tr" + (adm.stu === who ? ' class="sel"' : "") + "><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" + ftPct(s) + "</td><td>" +
             (top.length ? top.map(function (t) { return '<span class="tag">' + esc(MIS[t] || t) + " " + tg[t] + "</span>"; }).join(" ") : "—") + "</td>" +
             '<td><button class="btn small" data-stu="' + esc(who) + '">' + (adm.stu === who ? "닫기" : "답안 보기") + "</button></td></tr>";
         }).join("") + "</tbody></table></div>";
@@ -1672,6 +1739,21 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     if (!any) h += '<p class="note-line">아직 푼 문제가 없습니다.</p>';
     return h + '<p class="note-line">틀린 답이 있는 문제는 펼쳐서 보여 줍니다. 문제 이름을 누르면 접거나 펼칩니다.</p></div>';
   }
+  /* 학생 한 명의 소문제별 첫 시도: {문제: [1(맞음)|0(틀림), …]} . 다시 풀기 뒤의 시도는 세지 않는다 */
+  function firstTries(stu) {
+    var out = {}, A = stu.ans || {};
+    Object.keys(A).forEach(function (id) {
+      var seen = {}, r = [];
+      (A[id].a || []).forEach(function (e) { if (e.r || e.k == null || seen[e.k]) return; seen[e.k] = 1; r[e.k] = e.ok ? 1 : 0; });
+      out[id] = r;
+    });
+    return out;
+  }
+  function ftPct(stu) {
+    var ok = 0, n = 0, ft = firstTries(stu);
+    Object.keys(ft).forEach(function (id) { ft[id].forEach(function (v) { if (v != null) { n++; ok += v; } }); });
+    return n ? Math.round(ok * 100 / n) + "%" + "<small> (" + ok + "/" + n + ")</small>" : "—";
+  }
   function tagsOf(s) {
     var o = {};
     Object.keys(s.it || {}).forEach(function (id) { var tg = s.it[id][4] || {}; Object.keys(tg).forEach(function (t) { o[t] = (o[t] || 0) + (Number(tg[t]) || 0); }); });
@@ -1690,7 +1772,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     }).filter(function (r) { return r.n; }).sort(function (a, b) { return b.n - a.n || b.cnt - a.cnt; });
     var h = "<h2>오개념 유형 <small>" + esc(scope) + "</small></h2>";
     if (!rows.length) return h + '<p class="note-line">아직 기록된 오개념이 없습니다.</p>';
-    return h + '<p class="note-line">학생이 고르거나 입력한 오답을 착각의 종류별로 모았습니다. ‘학생 수’는 그 착각을 한 번이라도 보인 학생 수입니다. 다음 시간 정리할 때 위쪽부터 다루세요.</p>' +
+    return h + '<p class="note-line">학생이 고르거나 입력한 오답을 착각의 종류별로 모았습니다. 찍어서 고른 오답도 섞여 있으니 문항별 첫 시도 정답률과 함께 보세요. ‘학생 수’는 그 착각을 한 번이라도 보인 학생 수입니다. 다음 시간 정리할 때 위쪽부터 다루세요.</p>' +
       '<div class="tbl-wrap"><table class="list items"><thead><tr><th>오개념</th><th>학생 수</th><th>횟수</th><th>많이 나온 문제</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var pct = list.length ? Math.round(r.n * 100 / list.length) : 0;
@@ -1703,8 +1785,9 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     var rows = [];
     CAMPS.forEach(function (c) {
       c.probs.forEach(function (bp) {
-        var p = view(bp, 0), r = { label: c.name + " · " + bp.road, q: p, n: 0, done: 0, bad: 0, miss: 0, steps: p.steps.map(function () { return 0; }), opts: {} };
+        var p = view(bp, 0), r = { label: c.name + " · " + bp.road, q: p, n: 0, done: 0, bad: 0, miss: 0, steps: p.steps.map(function () { return 0; }), opts: {}, ft: p.steps.map(function () { return [0, 0]; }) };
         list.forEach(function (s) {
+          var f1 = firstTries(s)[p.id]; if (f1) f1.forEach(function (v, k) { if (v != null && r.ft[k]) { r.ft[k][1]++; r.ft[k][0] += v; } });
           var v = s.it && s.it[p.id]; if (!v) return;
           r.n++; if (v[0]) r.done++; if (v[1] > 0) r.bad++; r.miss += v[1] || 0;
           (v[2] || []).forEach(function (m, k) { if (m && k < r.steps.length) r.steps[k] += m; });
@@ -1720,21 +1803,26 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     });
     return rows;
   }
+  /* 소문제별 첫 시도 정답률. 50% 미만은 빨갛게(찍어서 통과했거나 아직 모르는 학생이 많다) */
+  function ftCell(r) {
+    if (!r.ft || !r.ft.some(function (x) { return x[1]; })) return "—";
+    return r.ft.map(function (x, k) { if (!x[1]) return ""; var pc = Math.round(x[0] * 100 / x[1]); return '<span class="' + (pc < 50 ? "hot" : "") + '">' + MARK[k] + " " + pc + "%</span>"; }).join(" ");
+  }
   function itemsHtml(list, scope) {
     var rows = itemStats(list).filter(function (r) { return r.n > 0; });
     var h = "<h2>문항별 오답률 <small>" + esc(scope) + "</small></h2>";
     if (!rows.length) return h + '<p class="note-line">아직 문제를 푼 기록이 없습니다.</p>';
     if (adm.byBad) rows.sort(function (a, b) { return b.bad / b.n - a.bad / a.n || b.miss - a.miss; });
-    return h + '<div class="row"><p class="note-line">오답률은 그 문제에 도전한 학생 가운데 한 번이라도 틀린 학생의 비율입니다. 학생마다 숫자가 다른 문제는 모두 합쳐 셉니다(선택지 내용은 첫 번째 판본 기준).</p>' +
+    return h + '<div class="row"><p class="note-line">오답률은 그 문제에 도전한 학생 가운데 한 번이라도 틀린 학생의 비율입니다. 첫 시도 정답률은 소문제마다 처음 낸 답이 맞은 비율로, 50% 미만은 빨갛게 표시합니다(찍어서 통과한 학생이 섞여 있을 수 있는 곳). 학생마다 숫자가 다른 문제는 모두 합쳐 셉니다(선택지 내용은 첫 번째 판본 기준).</p>' +
       '<button class="btn small" data-act="adminSort">' + (adm.byBad ? "학습 순서로 보기" : "오답률 높은 순으로 보기") + "</button></div>" +
-      '<div class="tbl-wrap"><table class="list items"><thead><tr><th>문항</th><th>문제</th><th>도전</th><th>오답률</th><th>평균 오답</th><th>많이 틀린 줄</th><th>가장 많이 고른 오답</th></tr></thead><tbody>' +
+      '<div class="tbl-wrap"><table class="list items"><thead><tr><th>문항</th><th>문제</th><th>도전</th><th>오답률</th><th>첫 시도 정답률</th><th>평균 오답</th><th>많이 틀린 줄</th><th>가장 많이 고른 오답</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var pct = Math.round(r.bad * 100 / r.n), top = "", maxS = Math.max.apply(null, r.steps.concat([0]));
         var stepTxt = r.q && r.q.steps.length > 1 ? r.steps.map(function (m, k) { return '<span class="' + (m && m === maxS ? "hot" : "") + '">' + MARK[k] + " " + m + "</span>"; }).join(" ") : "";
         var best = null; Object.keys(r.opts).forEach(function (key) { if (!best || r.opts[key] > r.opts[best]) best = key; });
         if (best && r.q) { var kv = best.split(":"), stp = r.q.steps[+kv[0]]; if (stp && stp.o && stp.o[+kv[1]]) top = '<span class="pick">' + MARK[+kv[0]] + " " + optHtml(stp.o[+kv[1]]) + "</span> <small>" + r.opts[best] + "회</small>"; }
         return "<tr><th>" + esc(r.label) + '</th><td class="qcell">' + (r.q ? esc(r.q.short || "") : "핵심 정리 빈칸") + "</td><td>" + r.n + "명</td>" +
-          '<td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + pct + "%</b> <small>" + r.bad + " / " + r.n + "</small></td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
+          '<td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + pct + "%</b> <small>" + r.bad + " / " + r.n + "</small></td><td>" + ftCell(r) + "</td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
 
@@ -1987,6 +2075,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
       go("map");
     }
     else if (d.act === "play") play();
+    else if (d.pred != null) { var ppk = S.cur + ":" + ui.page; if (S.pred[ppk] == null) { S.pred[ppk] = +d.pred; dirty = true; save(); render(); } }
     else if (d.act === "final") go("final");
     else if (d.gate) checkGate(d.gate);
     else if (d.act === "map") go("map");
