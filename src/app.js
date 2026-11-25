@@ -474,11 +474,22 @@
   }
 
   /* ---------- 문제 화면 ---------- */
-  function logHtml(s, markNew) {
+  /* 소문제마다 색을 달리해 ①②③이 서로 다른 문제로 보이게 한다(진행 막대, 문제 카드, 내 풀이에 같은 색) */
+  var SC = ["#0F6B78", "#D2541B", "#1B7F4A", "#7A4FB0", "#B07A00", "#B0336B"];
+  function sc(k) { return "--sc:" + SC[k % SC.length]; }
+  function stripMark(t) { return String(t || "").replace(/^[①-⑩]\s*/, ""); }
+  function logHtml(s, markNew, p) {
     return s.log.map(function (l, k) {
-      var body = l.k === "m" ? M(l.v) : l.v;
-      return '<div class="logline' + (markNew && k === s.log.length - 1 ? " new" : "") + '"><i>' + MARK[k] + "</i><div>" + body + "</div></div>";
+      var body = l.k === "m" ? M(l.v) : l.v, cap = p && p.steps[k] ? '<small class="cap">' + stripMark(p.steps[k].p) + "</small>" : "";
+      return '<div class="logline' + (markNew && k === s.log.length - 1 ? " new" : "") + '" style="' + sc(k) + '"><i>' + MARK[k] + "</i><div>" + cap + "<div>" + body + "</div></div></div>";
     }).join("");
+  }
+  /* 소문제 진행 막대: 지난 소문제는 ✓, 지금 소문제는 크게, 남은 소문제는 흐리게 */
+  function stepperHtml(p, s) {
+    return '<ol class="stepper" aria-label="소문제 ' + (s.step + 1) + " / " + p.steps.length + '">' + p.steps.map(function (_, k) {
+      var cls = k < s.step ? "done" : k === s.step ? "cur" : "todo";
+      return '<li class="' + cls + '" style="' + sc(k) + '"><span>' + (cls === "done" ? "✓" : k + 1) + "</span></li>";
+    }).join("") + "</ol>";
   }
   /* 틀렸을 때 답을 알려 주는 대신, 스스로 확인할 방법을 묻는다 */
   function askOf(p, k) {
@@ -503,7 +514,7 @@
     var p = view(BYID[S.cur]), s = st(p.id), c = CAMPS[p.camp];
     var left = '<div class="card"><div class="meta"><span>' + c.name + " · " + c.topic + " · " + esc(p.road) + "</span>" +
       '<span class="miss">' + (s.miss ? "틀린 횟수 " + s.miss + "회" : "") + "</span></div>" + qHtml(p) +
-      (s.log.length ? '<div class="log"><h3>내 풀이</h3>' + logHtml(s, ui.fresh) + "</div>" : "") + "</div>";
+      (s.log.length ? '<div class="log"><h3>푼 소문제</h3>' + logHtml(s, ui.fresh, p) + "</div>" : "") + "</div>";
     var right;
     if (s.done) {
       right = nextHtml(p, s);
@@ -515,8 +526,11 @@
     } else {
       var step = p.steps[s.step], L = lim(step), dots = "";
       for (var di = 0; di < L; di++) dots += '<i class="' + (di < L - s.tries ? "" : "used") + '"></i>';
-      right = '<div class="card now"><div class="now-head"><h3>풀이 ' + (s.step + 1) + " / " + p.steps.length + " 단계</h3>" +
-        '<span class="tries" aria-label="남은 기회 ' + (L - s.tries) + '번">남은 기회 ' + dots + '</span></div><p class="prompt">' + step.p + "</p>";
+      var justMoved = ui.moved && s.step > 0 && !(ui.fb && ui.fb[0] === "no");
+      right = '<div class="card now" style="' + sc(s.step) + '">' + stepperHtml(p, s) +
+        (justMoved ? '<div class="passbar" role="status"><b>✓ ' + MARK[s.step - 1] + "번 정답!</b> 이제 <b>" + MARK[s.step] + "번 문제</b>입니다.</div>" : "") +
+        '<div class="subq' + (justMoved && ui.fresh ? " enter" : "") + '"><div class="subq-head"><span class="subq-n">' + MARK[s.step] + '</span><span class="subq-of">소문제 ' + (s.step + 1) + " / " + p.steps.length + "</span>" +
+        '<span class="tries" aria-label="남은 기회 ' + (L - s.tries) + '번">남은 기회 ' + dots + '</span></div><p class="prompt">' + stripMark(step.p) + "</p>";
       if (step.t === "choice") {
         if (!ui.order) ui.order = shuffle(step.o.length);
         right += '<div class="opts">' + ui.order.map(function (i) {
@@ -537,7 +551,7 @@
       right += '<p class="fb ' + (ui.fb ? ui.fb[0] : "") + '" role="status">' + (ui.fb ? ui.fb[1] : "") + '</p><p class="wait" data-wait role="status"></p>';
       if (s.hint) right += '<div class="hintbox"><b>다시 생각해 보기</b>' + (s.why ? '<p><b class="hl">방금 답</b>' + s.why + "</p>" : "") + "<p>" + askOf(p, s.step) + "</p>" +
         (s.hintOpen ? '<p><b class="hl">힌트</b>' + step.h + "</p>" : '<p><button class="btn small" data-act="hint">그래도 모르겠으면 힌트 보기</button></p>') + "</div>";
-      right += "</div>";
+      right += "</div></div>";
     }
     return bar(true) + '<div class="prob">' + left + right + "</div>";
   }
@@ -553,7 +567,7 @@
         var s = S.probs[bp.id]; if (!s || !s.done) return;
         var p = view(bp);
         h += '<div class="rec"><div class="rec-head">' + c.name + " · " + c.topic + " · " + esc(p.road) + "<span>" + s.score + "점 · 틀린 횟수 " + s.miss + "회" + (s.hints ? " · 힌트 " + s.hints + "회" : "") +
-          (s.resets ? " · 다시 풀기 " + s.resets + "회" : "") + "</span></div>" + '<div class="q text">' + p.text + "</div>" + logHtml(s) + "</div>";
+          (s.resets ? " · 다시 풀기 " + s.resets + "회" : "") + "</span></div>" + '<div class="q text">' + p.text + "</div>" + logHtml(s, false, p) + "</div>";
       });
     });
     return h + "</div>";
@@ -820,6 +834,7 @@
     app.innerHTML = S.view === "admin" ? vAdmin() : S.view === "map" ? vMap() : S.view === "learn" ? vLearn() : S.view === "final" ? vFinal() : S.view === "prob" && BYID[S.cur] ? vProb() : S.view === "record" ? vRecord() : vIntro();
     if (S.view === "learn") mwBind(); else { stopPlay(); MW = null; }
     typeset(); applyLock();
+    if (S.view === "prob") ui.fresh = false;                                  /* 들어오는 움직임은 한 번만(숫자를 누를 때마다 다시 움직이지 않게) */
     if (S.view === "prob" && !S.tutPad && app.querySelector(".pad")) setTimeout(maybeTour, 250);
   }
 
@@ -878,7 +893,7 @@
   function workText(s) { return s.log.map(function (l, k) { return MARK[k] + " " + plain(l.v); }).join("\n"); }
   function advance(p, s, entry) {
     s.log.push(entry); s.step++; s.tries = 0; s.wrong = []; s.hint = false; s.hintOpen = false; s.why = "";
-    ui = freshUi(); ui.fresh = true; ui.fb = ["ok", "맞았습니다. 다음 줄로 갑니다."]; dirty = true;
+    ui = freshUi(); ui.fresh = true; ui.moved = true; dirty = true;
     if (s.step >= p.steps.length) {
       s.done = true; s.score = p.pts; ui.fb = null;                 /* 감점 없음: 틀린 횟수는 기록만 한다 */
       var ci = p.camp, ck = "c:" + CAMPS[ci].key, firstPass = probsPassed(ci) && !S.cele[ck];
@@ -890,6 +905,8 @@
       return;
     }
     save(); render();
+    var pb = app.querySelector(".passbar");                                   /* 새 소문제의 머리가 화면 밖이면 보이게 */
+    if (pb && pb.scrollIntoView) pb.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" });
   }
   function tagIt(s, tag) { if (!tag) return; s.tg = s.tg || {}; s.tg[tag] = (s.tg[tag] || 0) + 1; }
   function missed(msg) {
