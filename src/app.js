@@ -10,7 +10,7 @@
   CAMPS.forEach(function (c, ci) { if (c.bonus) BONUSES.push(ci); else SUMMIT = ci; });
   var MAIN = SUMMIT + 1;
   /* 서버 설정의 기본값. limC = 선택형 기회, limN = 입력형 기회, wait = 오답 뒤 제출을 막는 시간(초), vary = 학생마다 다른 숫자 */
-  var DEFAULTS = { limC: 3, limN: 5, wait: 0, vary: true };
+  var DEFAULTS = { limC: 2, limN: 5, wait: 5, vary: true };
   function withDefaults(o) { var c = {}, k; for (k in DEFAULTS) c[k] = DEFAULTS[k]; for (k in (o || {})) if (o[k] != null && DEFAULTS.hasOwnProperty(k)) c[k] = o[k]; return c; }
   var CFG = withDefaults();
 
@@ -19,7 +19,7 @@
   try { var sv = JSON.parse(localStorage.getItem(KEY) || "null"); if (sv && sv.probs) S = sv; } catch (e) {}
   S.view = "intro"; S.cur = null;
   function norm() {
-    S.cele = S.cele || {}; S.outbox = S.outbox || []; S.rev = S.rev || 0; S.probs = S.probs || {}; S.note = S.note || {}; S.learn = S.learn || {};
+    S.cele = S.cele || {}; S.outbox = S.outbox || []; S.rev = S.rev || 0; S.probs = S.probs || {}; S.note = S.note || {}; S.learn = S.learn || {}; S.pred = S.pred || {}; S.seen = S.seen || {};
     S.final = S.final || { done: false, ok: {}, tries: {}, vals: {}, miss: 0 };
   }
   norm();
@@ -79,7 +79,7 @@
     for (var k = 0; k < sts.length; k++) if (sts[k].list.indexOf(p) >= 0) return stageOpen(c, k);
     return false;
   }
-  function probsPassed(ci) { return stages(CAMPS[ci]).every(stageDone); }
+  function probsPassed(ci) { return !!S.cele["c:" + CAMPS[ci].key] || stages(CAMPS[ci]).every(stageDone); }
   /* 마지막 단계는 문제에 더해 마지막 확인(핵심 정리 빈칸)까지 통과해야 한다 */
   function passed(ci) { return probsPassed(ci) && (ci !== SUMMIT || S.final.done); }
   function progress() { return { c: CAMPS.map(function (_, ci) { return probsPassed(ci) ? 1 : 0; }), f: S.final.done ? 1 : 0 }; }
@@ -286,12 +286,12 @@
     legs.push([from, d.X[k]]);
     return legs;
   }
-  function mwHtml(w) {
+  function mwHtml(w, locked) {
     var stat = { x: ["x", "위치"], d: ["dx", "위치의 변화량"], s: ["ds", "움직인 거리"] };
     return '<div class="mw"><div class="mw-line"></div><div class="mw-stats">' + (w.show || ["x", "d"]).map(function (k) {
       return '<div class="mw-st ' + stat[k][0] + '"><small>' + stat[k][1] + '</small><b data-stat="' + k + '">0</b></div>';
-    }).join("") + '</div><div class="mw-graph"></div><div class="mw-ctl"><button class="btn primary small" data-act="play">▶ 재생</button>' +
-      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub><span class="mw-t">t = 0</span></div></div>';
+    }).join("") + '</div><div class="mw-graph"></div><div class="mw-ctl"><button class="btn primary small" data-act="play"' + (locked ? " disabled" : "") + '>▶ 재생</button>' +
+      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub' + (locked ? " disabled" : "") + '><span class="mw-t">t = 0</span></div></div>';
   }
   function mwDraw(k) {
     if (!MW) return; var d = MW.d, el = MW.el, w = d.w; k = Math.max(0, Math.min(d.N, Math.round(k))); MW.k = k;
@@ -302,6 +302,20 @@
     put("x", d.X[k]); put("d", d.X[k] - d.X[0], true); put("s", d.Sd[k]);
     el.querySelector(".mw-t").textContent = "t = " + fmt(t) + (w.tu ? " " + w.tu : "");
     var sl = el.querySelector("[data-scrub]"); if (sl && +sl.value !== k) sl.value = k;
+    if (k === d.N) learnEnd();
+  }
+  function predResult(ask, pred) {
+    return pred === ask.a ? "✓ 예측이 맞았습니다! 왜 그런지 아래 숫자와 그래프로 다시 확인해 보세요." :
+      "내 예측: " + esc(ask.o[pred]) + " → 실제: <b>" + esc(ask.o[ask.a]) + "</b>. 왜 다른지 수직선의 화살표와 그래프의 색칠된 넓이를 비교해 보세요.";
+  }
+  /* 그림을 끝까지 본 순간: 예측과 실제를 비교해 보여 주고, 다음 장 버튼을 연다(화면 전체를 다시 그리지 않는다) */
+  function learnEnd() {
+    var pk = S.cur + ":" + ui.page, pg = (LEARN[S.cur] || [])[ui.page]; if (!pg) return;
+    if (!S.seen[pk]) { S.seen[pk] = Date.now(); dirty = true; save(); }
+    Array.prototype.forEach.call(app.querySelectorAll("[data-act=lnext], [data-act=ldone]"), function (b) { b.disabled = false; });
+    var gn = app.querySelector(".gate-note"); if (gn) gn.remove();
+    var pr = app.querySelector(".presult"), pred = S.pred[pk];
+    if (pr && pg.ask && pred != null) { pr.innerHTML = predResult(pg.ask, pred); pr.className = "presult " + (pred === pg.ask.a ? "ok" : "no"); }
   }
   function mwBind() {
     stopPlay(); MW = null;
@@ -467,10 +481,17 @@
   function vLearn() {
     var c = CAMPS[BYKEY[S.cur]], pages = LEARN[S.cur] || [], k = Math.min(ui.page, pages.length - 1), pg = pages[k], last = k === pages.length - 1;
     var dots = pages.map(function (_, i) { return '<i class="' + (i === k ? "on" : i < k ? "seen" : "") + '"></i>'; }).join("");
+    var pk = S.cur + ":" + k, ask = pg.ask, pred = S.pred[pk], seen = !!S.seen[pk], gate = !!pg.w && !learned(c);
+    var askHtml = ask ? '<div class="predict"><p class="pq">' + ask.q + '</p><div class="popts">' + ask.o.map(function (o, i) {
+      return '<button class="popt' + (pred === i ? " on" : "") + '" data-pred="' + i + '"' + (pred != null ? " disabled" : "") + ">" + esc(o) + "</button>";
+    }).join("") + '</div><p class="presult' + (seen && pred != null ? (pred === ask.a ? " ok" : " no") : "") + '" role="status">' +
+      (pred == null ? "하나를 고르면 ▶ 재생이 열립니다." : seen ? predResult(ask, pred) : "좋습니다. 이제 ▶를 눌러 확인해 보세요.") + "</p></div>" : "";
+    var lockNext = gate && !seen;
     return bar(true) + '<div class="card learn"><div class="learn-head"><p class="kicker">' + c.name + " · " + c.topic + '</p><span class="dots" aria-label="' + (k + 1) + " / " + pages.length + '장">' + dots + "</span></div>" +
-      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + (pg.w ? mwHtml(pg.w) : "") +
+      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + askHtml + (pg.w ? mwHtml(pg.w, gate && ask && pred == null) : "") +
+      (lockNext ? '<p class="gate-note">그림을 끝까지 보면 다음으로 넘어갈 수 있습니다.</p>' : "") +
       '<div class="learn-nav"><button class="btn" data-act="lprev"' + (k ? "" : " disabled") + '>← 이전</button>' +
-      (last ? '<button class="btn primary" data-act="ldone">' + (learned(c) ? "학습 지도로" : "문제 풀러 가기") + "</button>" : '<button class="btn primary" data-act="lnext">다음 →</button>') + "</div></div>";
+      (last ? '<button class="btn primary" data-act="ldone"' + (lockNext ? " disabled" : "") + ">" + (learned(c) ? "학습 지도로" : "문제 풀러 가기") + "</button>" : '<button class="btn primary" data-act="lnext"' + (lockNext ? " disabled" : "") + ">다음 →</button>") + "</div></div>";
   }
 
   /* ---------- 문제 화면 ---------- */
@@ -717,11 +738,11 @@
     var scoped = adm.open && groups[adm.open] ? groups[adm.open] : null, scopeList = scoped ? scoped.list : adm.data, scopeName = scoped ? scoped.label : "전체";
     if (scoped) {
       var list = scoped.list.slice().sort(function (a, b) { return String(a.sid).localeCompare(String(b.sid)); });
-      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>자주 보인 오개념</th><th>답안</th></tr></thead><tbody>' +
+      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>첫 시도 정답률</th><th>자주 보인 오개념</th><th>답안</th></tr></thead><tbody>' +
         list.map(function (s) {
           var last = "아직 없음"; STAGES.forEach(function (sg) { if (sg.get(s)) last = sg.name; });
           var cnt = STAGES.filter(function (sg) { return sg.get(s); }).length, who = s.sid + " " + s.name, tg = tagsOf(s), top = Object.keys(tg).sort(function (a, b) { return tg[b] - tg[a]; }).slice(0, 2);
-          return "<tr" + (adm.stu === who ? ' class="sel"' : "") + "><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" +
+          return "<tr" + (adm.stu === who ? ' class="sel"' : "") + "><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" + ftPct(s) + "</td><td>" +
             (top.length ? top.map(function (t) { return '<span class="tag">' + esc(MIS[t] || t) + " " + tg[t] + "</span>"; }).join(" ") : "—") + "</td>" +
             '<td><button class="btn small" data-stu="' + esc(who) + '">' + (adm.stu === who ? "닫기" : "답안 보기") + "</button></td></tr>";
         }).join("") + "</tbody></table></div>";
@@ -773,6 +794,21 @@
     if (!any) h += '<p class="note-line">아직 푼 문제가 없습니다.</p>';
     return h + '<p class="note-line">틀린 답이 있는 문제는 펼쳐서 보여 줍니다. 문제 이름을 누르면 접거나 펼칩니다.</p></div>';
   }
+  /* 학생 한 명의 소문제별 첫 시도: {문제: [1(맞음)|0(틀림), …]} . 다시 풀기 뒤의 시도는 세지 않는다 */
+  function firstTries(stu) {
+    var out = {}, A = stu.ans || {};
+    Object.keys(A).forEach(function (id) {
+      var seen = {}, r = [];
+      (A[id].a || []).forEach(function (e) { if (e.r || e.k == null || seen[e.k]) return; seen[e.k] = 1; r[e.k] = e.ok ? 1 : 0; });
+      out[id] = r;
+    });
+    return out;
+  }
+  function ftPct(stu) {
+    var ok = 0, n = 0, ft = firstTries(stu);
+    Object.keys(ft).forEach(function (id) { ft[id].forEach(function (v) { if (v != null) { n++; ok += v; } }); });
+    return n ? Math.round(ok * 100 / n) + "%" + "<small> (" + ok + "/" + n + ")</small>" : "—";
+  }
   function tagsOf(s) {
     var o = {};
     Object.keys(s.it || {}).forEach(function (id) { var tg = s.it[id][4] || {}; Object.keys(tg).forEach(function (t) { o[t] = (o[t] || 0) + (Number(tg[t]) || 0); }); });
@@ -791,7 +827,7 @@
     }).filter(function (r) { return r.n; }).sort(function (a, b) { return b.n - a.n || b.cnt - a.cnt; });
     var h = "<h2>오개념 유형 <small>" + esc(scope) + "</small></h2>";
     if (!rows.length) return h + '<p class="note-line">아직 기록된 오개념이 없습니다.</p>';
-    return h + '<p class="note-line">학생이 고르거나 입력한 오답을 착각의 종류별로 모았습니다. ‘학생 수’는 그 착각을 한 번이라도 보인 학생 수입니다. 다음 시간 정리할 때 위쪽부터 다루세요.</p>' +
+    return h + '<p class="note-line">학생이 고르거나 입력한 오답을 착각의 종류별로 모았습니다. 찍어서 고른 오답도 섞여 있으니 문항별 첫 시도 정답률과 함께 보세요. ‘학생 수’는 그 착각을 한 번이라도 보인 학생 수입니다. 다음 시간 정리할 때 위쪽부터 다루세요.</p>' +
       '<div class="tbl-wrap"><table class="list items"><thead><tr><th>오개념</th><th>학생 수</th><th>횟수</th><th>많이 나온 문제</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var pct = list.length ? Math.round(r.n * 100 / list.length) : 0;
@@ -804,8 +840,9 @@
     var rows = [];
     CAMPS.forEach(function (c) {
       c.probs.forEach(function (bp) {
-        var p = view(bp, 0), r = { label: c.name + " · " + bp.road, q: p, n: 0, done: 0, bad: 0, miss: 0, steps: p.steps.map(function () { return 0; }), opts: {} };
+        var p = view(bp, 0), r = { label: c.name + " · " + bp.road, q: p, n: 0, done: 0, bad: 0, miss: 0, steps: p.steps.map(function () { return 0; }), opts: {}, ft: p.steps.map(function () { return [0, 0]; }) };
         list.forEach(function (s) {
+          var f1 = firstTries(s)[p.id]; if (f1) f1.forEach(function (v, k) { if (v != null && r.ft[k]) { r.ft[k][1]++; r.ft[k][0] += v; } });
           var v = s.it && s.it[p.id]; if (!v) return;
           r.n++; if (v[0]) r.done++; if (v[1] > 0) r.bad++; r.miss += v[1] || 0;
           (v[2] || []).forEach(function (m, k) { if (m && k < r.steps.length) r.steps[k] += m; });
@@ -821,21 +858,26 @@
     });
     return rows;
   }
+  /* 소문제별 첫 시도 정답률. 50% 미만은 빨갛게(찍어서 통과했거나 아직 모르는 학생이 많다) */
+  function ftCell(r) {
+    if (!r.ft || !r.ft.some(function (x) { return x[1]; })) return "—";
+    return r.ft.map(function (x, k) { if (!x[1]) return ""; var pc = Math.round(x[0] * 100 / x[1]); return '<span class="' + (pc < 50 ? "hot" : "") + '">' + MARK[k] + " " + pc + "%</span>"; }).join(" ");
+  }
   function itemsHtml(list, scope) {
     var rows = itemStats(list).filter(function (r) { return r.n > 0; });
     var h = "<h2>문항별 오답률 <small>" + esc(scope) + "</small></h2>";
     if (!rows.length) return h + '<p class="note-line">아직 문제를 푼 기록이 없습니다.</p>';
     if (adm.byBad) rows.sort(function (a, b) { return b.bad / b.n - a.bad / a.n || b.miss - a.miss; });
-    return h + '<div class="row"><p class="note-line">오답률은 그 문제에 도전한 학생 가운데 한 번이라도 틀린 학생의 비율입니다. 학생마다 숫자가 다른 문제는 모두 합쳐 셉니다(선택지 내용은 첫 번째 판본 기준).</p>' +
+    return h + '<div class="row"><p class="note-line">오답률은 그 문제에 도전한 학생 가운데 한 번이라도 틀린 학생의 비율입니다. 첫 시도 정답률은 소문제마다 처음 낸 답이 맞은 비율로, 50% 미만은 빨갛게 표시합니다(찍어서 통과한 학생이 섞여 있을 수 있는 곳). 학생마다 숫자가 다른 문제는 모두 합쳐 셉니다(선택지 내용은 첫 번째 판본 기준).</p>' +
       '<button class="btn small" data-act="adminSort">' + (adm.byBad ? "학습 순서로 보기" : "오답률 높은 순으로 보기") + "</button></div>" +
-      '<div class="tbl-wrap"><table class="list items"><thead><tr><th>문항</th><th>문제</th><th>도전</th><th>오답률</th><th>평균 오답</th><th>많이 틀린 줄</th><th>가장 많이 고른 오답</th></tr></thead><tbody>' +
+      '<div class="tbl-wrap"><table class="list items"><thead><tr><th>문항</th><th>문제</th><th>도전</th><th>오답률</th><th>첫 시도 정답률</th><th>평균 오답</th><th>많이 틀린 줄</th><th>가장 많이 고른 오답</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var pct = Math.round(r.bad * 100 / r.n), top = "", maxS = Math.max.apply(null, r.steps.concat([0]));
         var stepTxt = r.q && r.q.steps.length > 1 ? r.steps.map(function (m, k) { return '<span class="' + (m && m === maxS ? "hot" : "") + '">' + MARK[k] + " " + m + "</span>"; }).join(" ") : "";
         var best = null; Object.keys(r.opts).forEach(function (key) { if (!best || r.opts[key] > r.opts[best]) best = key; });
         if (best && r.q) { var kv = best.split(":"), stp = r.q.steps[+kv[0]]; if (stp && stp.o && stp.o[+kv[1]]) top = '<span class="pick">' + MARK[+kv[0]] + " " + optHtml(stp.o[+kv[1]]) + "</span> <small>" + r.opts[best] + "회</small>"; }
         return "<tr><th>" + esc(r.label) + '</th><td class="qcell">' + (r.q ? esc(r.q.short || "") : "핵심 정리 빈칸") + "</td><td>" + r.n + "명</td>" +
-          '<td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + pct + "%</b> <small>" + r.bad + " / " + r.n + "</small></td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
+          '<td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + pct + "%</b> <small>" + r.bad + " / " + r.n + "</small></td><td>" + ftCell(r) + "</td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
 
@@ -1088,6 +1130,7 @@
       go("map");
     }
     else if (d.act === "play") play();
+    else if (d.pred != null) { var ppk = S.cur + ":" + ui.page; if (S.pred[ppk] == null) { S.pred[ppk] = +d.pred; dirty = true; save(); render(); } }
     else if (d.act === "final") go("final");
     else if (d.gate) checkGate(d.gate);
     else if (d.act === "map") go("map");

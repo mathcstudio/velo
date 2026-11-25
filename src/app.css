@@ -488,3 +488,17 @@ ol.how3 { margin: 0 0 12px; padding-left: 1.4em; } ol.how3 li { margin-bottom: 6
 .ans-a.no { background: var(--bad-soft); } .ans-a.no b { color: var(--bad); }
 .ans-a .bad { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 4px; }
 .ans-reset { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--flag); border-top: 1.5px dashed var(--flag); padding-top: 6px; }
+
+/* 개념 설명: 예측하고 보기 */
+.predict { border: 2px dashed var(--flag); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--flag) 5%, var(--surface)); }
+.predict .pq { margin: 0; font-weight: 700; font-size: 17px; word-break: keep-all; }
+.popts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.popt { border: 2px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; min-height: 52px; font-size: 16px; text-align: left; }
+.popt.on { border-color: var(--flag); background: color-mix(in srgb, var(--flag) 14%, var(--surface)); font-weight: 700; }
+.popt:disabled { cursor: default; }
+.popt:disabled:not(.on) { opacity: .55; }
+.presult { margin: 0; font-size: 15px; color: var(--muted); }
+.presult.ok { color: var(--good); font-weight: 700; }
+.presult.no { color: var(--bad); }
+.gate-note { margin: 0; text-align: right; font-size: 14px; font-weight: 700; color: var(--flag); }
+.btn:disabled[data-act=lnext], .btn:disabled[data-act=ldone] { opacity: .45; }
