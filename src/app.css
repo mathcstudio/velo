@@ -448,3 +448,29 @@ ol.how3 { margin: 0 0 12px; padding-left: 1.4em; } ol.how3 li { margin-bottom: 6
 
 /* 관리자: 오개념 */
 .tag { display: inline-block; font-size: 13px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); margin: 1px 0; }
+
+/* 소문제(①②③) 화면: 소문제마다 색이 바뀌고, 넘어갈 때 새 카드가 들어온다 */
+.now { border-top: 6px solid var(--sc, var(--accent)); }
+.stepper { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; }
+.stepper li { flex: 1 1 0; display: flex; align-items: center; min-width: 0; }
+.stepper li:last-child { flex: 0 0 auto; }
+.stepper li::after { content: ""; flex: 1 1 auto; height: 3px; margin: 0 6px; border-radius: 2px; background: var(--line); }
+.stepper li.done::after { background: var(--good); }
+.stepper li:last-child::after { display: none; }
+.stepper span { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 17px; border: 2px solid var(--line); color: var(--muted); background: var(--surface); transition: transform .3s; }
+.stepper .done span { background: var(--good); border-color: var(--good); color: #FFFFFF; }
+.stepper .cur span { width: 44px; height: 44px; font-size: 22px; background: var(--sc); border-color: var(--sc); color: #FFFFFF; box-shadow: 0 0 0 4px color-mix(in srgb, var(--sc) 22%, transparent); }
+.passbar { background: var(--good-soft); border: 1.5px solid var(--good); color: var(--good); border-radius: 12px; padding: 10px 14px; font-size: 17px; }
+.passbar b { font-weight: 700; }
+.subq { display: flex; flex-direction: column; gap: 12px; border: 2px solid var(--sc); border-radius: 14px; padding: 14px; background: color-mix(in srgb, var(--sc) 6%, var(--surface)); }
+.subq-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.subq-n { font-family: var(--display); font-size: 34px; line-height: 1; color: var(--sc); }
+.subq-of { font-weight: 700; color: var(--sc); font-size: 15px; letter-spacing: .04em; }
+.subq-head .tries { margin-left: auto; }
+.subq .prompt { font-size: 20px; line-height: 1.55; word-break: keep-all; }
+.subq.enter { animation: subqIn .55s cubic-bezier(.2, .8, .3, 1.1); }
+@keyframes subqIn { 0% { transform: translateX(46px); opacity: 0; box-shadow: 0 0 0 0 var(--sc); } 60% { opacity: 1; box-shadow: 0 0 0 8px color-mix(in srgb, var(--sc) 25%, transparent); } 100% { transform: none; box-shadow: 0 0 0 0 transparent; } }
+.logline { border-left: 5px solid var(--sc, var(--good)); }
+.logline i { color: var(--sc, var(--good)); font-size: 18px; }
+.logline .cap { display: block; font-size: 13px; color: var(--muted); font-weight: 700; line-height: 1.4; margin-bottom: 2px; }
+@media (prefers-reduced-motion: reduce) { .subq.enter { animation: none; } }
