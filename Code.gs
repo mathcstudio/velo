@@ -180,13 +180,16 @@ function students_() {
   if (last < 2) return out;
   sh.getRange(2, 1, last - 1, REC_HEAD.length).getValues().forEach(function (r) {
     var full = String(r[0] || '').trim(); if (!full) return;
-    var sp = full.indexOf(' '), prog = null, stj = {}, it = {}, gate = {};
+    var sp = full.indexOf(' '), prog = null, stj = {}, it = {}, gate = {}, ans = {};
     try { stj = JSON.parse(String(r[REC_HEAD.length - 1] || '{}')) || {}; } catch (e) {}
     prog = stj.prog || null;
     /* 손댄 문제마다 [완료 여부, 오답 수, 줄별 오답 수, 선택지별 오답 수, 오개념별 횟수] */
     Object.keys(stj.probs || {}).forEach(function (id) {
       var q = stj.probs[id] || {};
       if (q.done || q.miss || q.step) it[id] = [q.done ? 1 : 0, Number(q.miss) || 0, q.ms || [], q.wo || {}, q.tg || {}];
+      /* 답안 보기용: 낸 답을 차례대로. 예전 기록(답을 모으기 전)은 맞은 풀이 줄만 */
+      if (q.done || (q.att && q.att.length) || (q.log && q.log.length))
+        ans[id] = { d: q.done ? 1 : 0, v: q.ver == null ? null : q.ver, a: q.att || [], l: q.att && q.att.length ? null : (q.log || []).map(function (x) { return String(x.v || ''); }) };
     });
     var fin = stj.final || {};
     Object.keys(fin.ok || {}).concat(Object.keys(fin.msk || {})).forEach(function (k) { gate[k] = [(fin.ok || {})[k] ? 1 : 0, Number((fin.msk || {})[k]) || 0]; });
@@ -195,7 +198,7 @@ function students_() {
       for (var i = 0; i < N_ALL; i++) cc.push(i < n ? 1 : 0);
       prog = { c: cc, f: n >= N_STAGES ? 1 : 0 };
     }
-    out.push({ sid: sp > 0 ? full.slice(0, sp) : full, name: sp > 0 ? full.slice(sp + 1) : '', c: prog.c, f: prog.f ? 1 : 0, score: Number(r[5]) || 0, pos: String(r[3] || ''), it: it, g: gate });
+    out.push({ sid: sp > 0 ? full.slice(0, sp) : full, name: sp > 0 ? full.slice(sp + 1) : '', c: prog.c, f: prog.f ? 1 : 0, score: Number(r[5]) || 0, pos: String(r[3] || ''), it: it, g: gate, ans: ans });
   });
   return out;
 }

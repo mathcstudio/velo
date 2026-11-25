@@ -28,7 +28,7 @@
   function freshUi() { return { order: null, vals: [], active: 0, ok: [], no: [], fb: null, busy: false, fresh: false, page: 0 }; }
   var ui = freshUi(), joining = false, joinErr = "", joinForce = "", dirty = false;
   var exOpen = {};
-  function freshAdm() { return { byBad: false, data: null, err: "", busy: false, open: null, pw: "", sel: {}, msg: "" }; }
+  function freshAdm() { return { byBad: false, data: null, err: "", busy: false, open: null, stu: null, pw: "", sel: {}, msg: "" }; }
   var adm = freshAdm(), gateFb = {};
 
   /* ---------- 도우미 ---------- */
@@ -662,7 +662,7 @@
       var reach = (n * 7 + k * 3) % (MAIN + 3), c = CAMPS.map(function () { return 0; });
       for (var i = 0; i < Math.min(reach, MAIN); i++) c[i] = 1;
       if (reach >= MAIN + 2) c[BONUSES[0]] = 1;
-      var fin = reach >= MAIN + 1, it = {}, g = {};
+      var fin = reach >= MAIN + 1, it = {}, g = {}, ans = {};
       CAMPS.forEach(function (cp, ci) {
         if (cp.bonus || ci > Math.min(reach, SUMMIT)) return;
         cp.probs.forEach(function (q, qi) {
@@ -674,10 +674,19 @@
             tg[tags[(n + qi + ci * 2) % 6]] = m;
           }
           it[q.id] = [ci < reach ? 1 : 0, m, ms, wo, tg];
+          var att = [];
+          steps.forEach(function (stp, kk) {
+            if (m && kk === ms.indexOf(m)) {
+              if (stp.t === "choice") att.push({ k: kk, o: 1 + (n + ci) % 3 });
+              else att.push({ k: kk, v: stp.f.map(function (f) { var t = Object.keys(f[2] || {}); return t.length ? t[0] : String((parse(f[1]) || [1])[0] + 1); }) });
+            }
+            if (ci < reach) att.push(stp.t === "choice" ? { k: kk, o: 0, ok: 1 } : { k: kk, v: stp.f.map(function (f) { return f[1]; }), ok: 1 });
+          });
+          ans[q.id] = { d: ci < reach ? 1 : 0, v: q.variants ? 0 : null, a: att };
         });
         if (fin) g[cp.key] = [1, (n + ci) % 3];
       });
-      out.push({ sid: "2" + ("0" + k).slice(-2) + ("0" + n).slice(-2), name: fam.charAt((n + k) % 10) + giv[(n * k) % 10], c: c, f: fin ? 1 : 0, score: reach * 30 + n, pos: "", it: it, g: g });
+      out.push({ sid: "2" + ("0" + k).slice(-2) + ("0" + n).slice(-2), name: fam.charAt((n + k) % 10) + giv[(n * k) % 10], c: c, f: fin ? 1 : 0, score: reach * 30 + n, pos: "", it: it, g: g, ans: ans });
     }
     return out;
   }
@@ -708,17 +717,61 @@
     var scoped = adm.open && groups[adm.open] ? groups[adm.open] : null, scopeList = scoped ? scoped.list : adm.data, scopeName = scoped ? scoped.label : "전체";
     if (scoped) {
       var list = scoped.list.slice().sort(function (a, b) { return String(a.sid).localeCompare(String(b.sid)); });
-      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>자주 보인 오개념</th></tr></thead><tbody>' +
+      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>자주 보인 오개념</th><th>답안</th></tr></thead><tbody>' +
         list.map(function (s) {
           var last = "아직 없음"; STAGES.forEach(function (sg) { if (sg.get(s)) last = sg.name; });
           var cnt = STAGES.filter(function (sg) { return sg.get(s); }).length, who = s.sid + " " + s.name, tg = tagsOf(s), top = Object.keys(tg).sort(function (a, b) { return tg[b] - tg[a]; }).slice(0, 2);
-          return "<tr><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" +
-            (top.length ? top.map(function (t) { return '<span class="tag">' + esc(MIS[t] || t) + " " + tg[t] + "</span>"; }).join(" ") : "—") + "</td></tr>";
+          return "<tr" + (adm.stu === who ? ' class="sel"' : "") + "><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" +
+            (top.length ? top.map(function (t) { return '<span class="tag">' + esc(MIS[t] || t) + " " + tg[t] + "</span>"; }).join(" ") : "—") + "</td>" +
+            '<td><button class="btn small" data-stu="' + esc(who) + '">' + (adm.stu === who ? "닫기" : "답안 보기") + "</button></td></tr>";
         }).join("") + "</tbody></table></div>";
       var nSel = list.filter(function (s) { return adm.sel[s.sid + " " + s.name]; }).length;
       h += '<div class="row"><button class="btn small danger" data-act="adminDelSel"' + (nSel && !adm.busy ? "" : " disabled") + ">선택 학생 삭제" + (nSel ? " (" + nSel + "명)" : "") + '</button><span class="note-line">삭제하면 그 학생의 학습기록과 풀이기록이 시트에서 지워지고, 다음에 입장할 때 처음부터 시작합니다.</span></div>';
+      var me = adm.stu && list.filter(function (x) { return x.sid + " " + x.name === adm.stu; })[0];
+      if (me) h += ansHtml(me);
     }
     return h + misHtml(scopeList, scopeName) + itemsHtml(scopeList, scopeName) + "</div>";
+  }
+  /* 한 학생의 답안지: 문제마다 소문제별로 낸 답을 순서대로(틀린 답 ✗, 맞은 답 ✓). 틀린 답에는 어떤 착각인지 붙인다. */
+  function ansHtml(stu) {
+    var A = stu.ans, h = '<div id="ansPanel" class="ans"><h2>' + esc(stu.sid + " " + stu.name) + " · 답안</h2>";
+    if (!A) return h + '<p class="note-line">답안을 보려면 앱스크립트(Code.gs)를 새 버전으로 다시 배포하세요.</p></div>';
+    var any = false;
+    CAMPS.forEach(function (c) {
+      c.probs.forEach(function (bp) {
+        var a = A[bp.id]; if (!a) return; any = true;
+        var ans = a.a || [], p0 = view(bp, ans.length && ans[0].ver != null ? ans[0].ver : a.v), body = "", lastK = -1, lastVer = null;
+        ans.forEach(function (e) {
+          if (e.r) {
+            var nv = bp.variants && e.ver != null && e.ver !== lastVer;
+            body += '<div class="ans-reset">기회를 다 써서 처음부터 다시 풀었습니다' + (nv ? " · 숫자가 바뀐 문제:" : "") + "</div>" + (nv ? '<div class="q text">' + view(bp, e.ver).text + "</div>" : "");
+            lastK = -1; return;
+          }
+          var p = view(bp, e.ver != null ? e.ver : a.v), step = p.steps[e.k]; if (!step) return;
+          if (e.k !== lastK || e.ver !== lastVer) body += '<div class="ans-q" style="' + sc(e.k) + '"><i>' + MARK[e.k] + "</i>" + stripMark(step.p) + "</div>";
+          lastK = e.k; lastVer = e.ver;
+          var line, tag = "";
+          if (e.o != null) {
+            line = step.o[e.o] != null ? optHtml(step.o[e.o]) : "?";
+            if (!e.ok && step.tg && step.tg[e.o]) tag = step.tg[e.o];
+          } else {
+            line = step.f.map(function (f, i) {
+              var v = (e.v || [])[i], good = same(v, f[1]), tr = f[2] || {};
+              if (!good && !tag) Object.keys(tr).forEach(function (key) { if (!tag && same(v, key)) tag = tr[key][0]; });
+              return '<span class="' + (good ? "" : "bad") + '">' + M(f[0] + "=" + (parse(v) ? texNum(v) : "\\text{" + esc(v || "?") + "}")) + "</span>";
+            }).join(" &nbsp; ");
+          }
+          body += '<div class="ans-a ' + (e.ok ? "ok" : "no") + '"><b>' + (e.ok ? "✓" : "✗") + "</b><div>" + line + (tag ? ' <span class="tag">' + esc(MIS[tag] || tag) + "</span>" : "") + "</div></div>";
+        });
+        if (!ans.length && a.l) a.l.forEach(function (v, k) { body += '<div class="ans-a ok"><b>✓</b><div>' + MARK[k] + " " + M(v) + "</div></div>"; });
+        var wrong = ans.filter(function (e) { return !e.ok && !e.r; }).length;
+        h += '<details class="ans-card"' + (wrong ? " open" : "") + "><summary><b>" + c.name + " · " + esc(bp.road) + '</b><span class="badge' + (a.d ? " ok" : "") + '">' + (a.d ? "완료" : "푸는 중") + "</span>" +
+          (wrong ? '<span class="badge">틀린 답 ' + wrong + "번</span>" : "") + (bp.variants ? "<small>숫자 " + ((a.v || 0) + 1) + "번</small>" : "") + "</summary>" +
+          '<div class="q text">' + p0.text + "</div>" + (body || '<p class="note-line">아직 낸 답이 없습니다.</p>') + "</details>";
+      });
+    });
+    if (!any) h += '<p class="note-line">아직 푼 문제가 없습니다.</p>';
+    return h + '<p class="note-line">틀린 답이 있는 문제는 펼쳐서 보여 줍니다. 문제 이름을 누르면 접거나 펼칩니다.</p></div>';
   }
   function tagsOf(s) {
     var o = {};
@@ -925,11 +978,16 @@
     var s = st(S.cur), p = BYID[S.cur];
     s.step = 0; s.log = []; s.tries = 0; s.wrong = []; s.hint = false; s.hintOpen = false; s.fail = false; s.why = ""; s.resets = (s.resets || 0) + 1;
     if (p.variants && CFG.vary) s.ver = (s.ver + 1) % p.variants.length;
+    rec(s, { r: 1 });
     ui = freshUi(); dirty = true; save(); render(); window.scrollTo(0, 0);
   }
+  /* 학생이 낸 답(맞은 답, 틀린 답 모두)을 차례대로 남긴다. 관리자 화면의 ‘답안 보기’에 쓴다.
+     {k: 소문제 번호, o: 고른 선택지 | v: 입력한 값들, ok: 맞음, r: 다시 시작 표시, ver: 숫자 판본} */
+  function rec(s, e) { s.att = s.att || []; if (s.att.length >= 80) return; if (s.ver != null) e.ver = s.ver; s.att.push(e); }
   function pickOpt(i) {
     if (lockLeft()) return;
     var p = view(BYID[S.cur]), s = st(p.id), step = p.steps[s.step], o = step.o[0];
+    rec(s, i === 0 ? { k: s.step, o: 0, ok: 1 } : { k: s.step, o: i });
     if (i === 0) advance(p, s, o.indexOf("T:") === 0 ? { k: "t", v: o.slice(2) } : { k: "m", v: o });
     else {
       s.wrong.push(i); s.why = (step.w && step.w[i]) || "";
@@ -952,6 +1010,7 @@
       var tr = f[2] || {};
       Object.keys(tr).forEach(function (k) { if (same(ui.vals[i], k) && !why) { why = tr[k][1]; tagIt(s, tr[k][0]); } });
     });
+    rec(s, bad ? { k: s.step, v: step.f.map(function (_, i) { return String(ui.vals[i] || ""); }) } : { k: s.step, v: step.f.map(function (_, i) { return String(ui.vals[i] || ""); }), ok: 1 });
     if (bad) {
       ui.active = ui.no.indexOf(true); s.why = why;
       missed(why ? "틀렸습니다. 아래 안내를 읽고 빨간 칸을 다시 계산해 보세요." : "틀렸습니다. 빨간 칸을 다시 계산해 보세요."); return;
@@ -1019,7 +1078,8 @@
     else if (d.act === "adminSort") { adm.byBad = !adm.byBad; render(); }
     else if (d.act === "adminDelAll") confirmDelete([], true);
     else if (d.act === "adminDelSel") { var picked = Object.keys(adm.sel).filter(function (k) { return adm.sel[k] && adm.data.some(function (x) { return x.sid + " " + x.name === k; }); }); if (picked.length) confirmDelete(picked, false); }
-    else if (d.cls) { adm.open = adm.open === d.cls ? null : d.cls; adm.sel = {}; adm.msg = ""; render(); }
+    else if (d.cls) { adm.open = adm.open === d.cls ? null : d.cls; adm.stu = null; adm.sel = {}; adm.msg = ""; render(); }
+    else if (d.stu) { adm.stu = adm.stu === d.stu ? null : d.stu; render(); var ap = document.getElementById("ansPanel"); if (ap && ap.scrollIntoView) ap.scrollIntoView({ block: "start", behavior: calm ? "auto" : "smooth" }); }
     else if (d.learn) { go("learn", d.learn); }
     else if (d.act === "lnext" || d.act === "lprev") { stopPlay(); ui.page += d.act === "lnext" ? 1 : -1; ui.mwk = 0; render(); window.scrollTo(0, 0); }
     else if (d.act === "ldone") {

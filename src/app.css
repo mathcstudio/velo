@@ -474,3 +474,17 @@ ol.how3 { margin: 0 0 12px; padding-left: 1.4em; } ol.how3 li { margin-bottom: 6
 .logline i { color: var(--sc, var(--good)); font-size: 18px; }
 .logline .cap { display: block; font-size: 13px; color: var(--muted); font-weight: 700; line-height: 1.4; margin-bottom: 2px; }
 @media (prefers-reduced-motion: reduce) { .subq.enter { animation: none; } }
+
+/* 관리자: 학생 답안 */
+.ans { display: flex; flex-direction: column; gap: 10px; border: 2px solid var(--accent); border-radius: 14px; padding: 14px; scroll-margin-top: 12px; }
+.ans-card { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--surface); }
+.ans-card summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 40px; }
+.ans-card summary small { color: var(--muted); font-size: 13px; }
+.ans-card .q { font-size: 16px; line-height: 1.8; padding: 6px 0; }
+.ans-q { margin-top: 8px; font-weight: 700; font-size: 14px; color: var(--sc); display: flex; gap: 6px; }
+.ans-q i { font-style: normal; }
+.ans-a { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: center; padding: 4px 10px; border-radius: 8px; margin-top: 3px; font-size: 15px; overflow-x: auto; }
+.ans-a.ok { background: var(--good-soft); } .ans-a.ok b { color: var(--good); }
+.ans-a.no { background: var(--bad-soft); } .ans-a.no b { color: var(--bad); }
+.ans-a .bad { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 4px; }
+.ans-reset { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--flag); border-top: 1.5px dashed var(--flag); padding-top: 6px; }
