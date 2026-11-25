@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>위치의 변화량과 움직인 거리</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* 레이아웃: 한 열짜리 등산로(정상이 위). 문제 화면은 넓은 태블릿(가로)에서 문제·풀이 / 입력 두 열로 나뉜다. */
+:root {
+  --paper: #EEF3F4; --contour: #DCE6E8; --ink: #13262B; --muted: #55696F; --surface: #FFFFFF; --line: #BFCED2;
+  --accent: #0F6B78; --on-accent: #FFFFFF; --flag: #D2541B; --good: #1B7F4A; --good-soft: #DDF3E6;
+  --bad: #C0352F; --bad-soft: #FBE3E1; --band: #12262B; --on-band: #EAF2F4; --rock1: #7C959B; --rock2: #4E666C;
+  --display: "Black Han Sans", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --hand: "Nanum Pen Script", "Noto Sans KR", cursive;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1A1E; --contour: #15272C; --ink: #E6F0F2; --muted: #98AEB4; --surface: #152429; --line: #2B4148;
+    --accent: #5CC4D3; --on-accent: #0D1A1E; --flag: #F08A4B; --good: #5FD08F; --good-soft: #173626;
+    --bad: #F0827B; --bad-soft: #3B1C1B; --band: #081215; --on-band: #E6F0F2; --rock1: #3D555C; --rock2: #26393F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D1A1E; --contour: #15272C; --ink: #E6F0F2; --muted: #98AEB4; --surface: #152429; --line: #2B4148;
+  --accent: #5CC4D3; --on-accent: #0D1A1E; --flag: #F08A4B; --good: #5FD08F; --good-soft: #173626;
+  --bad: #F0827B; --bad-soft: #3B1C1B; --band: #081215; --on-band: #E6F0F2; --rock1: #3D555C; --rock2: #26393F;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background-color: var(--paper);
+  background-image: repeating-radial-gradient(ellipse 120% 80% at 50% 0%, transparent 0 46px, var(--contour) 46px 48px);
+  color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none;
+}
+.wrap {
+  max-width: 780px; margin: 0 auto; padding-block: 16px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 16px;
+}
+.wrap.wide { max-width: 1180px; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: clamp(30px, 7vw, 46px); }
+h1 span { color: var(--accent); }
+h2 { font-size: 24px; }
+.btn { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 18px; font-weight: 700; font-size: 17px; min-height: 50px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.small { font-size: 15px; padding: 6px 14px; min-height: 44px; font-weight: 500; }
+.btn:disabled { opacity: .55; cursor: default; }
+.card { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; }
+
+/* 상단 바 */
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.bar .who { font-weight: 700; }
+.bar .total { font-family: var(--display); font-size: 22px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.bar .right { display: flex; align-items: center; gap: 10px; }
+.sync { font-size: 12px; color: var(--muted); }
+.sync.bad { color: var(--bad); font-weight: 700; }
+
+/* 등산로 */
+.trail { display: flex; flex-direction: column; }
+.camp { position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding-bottom: 18px; }
+.camp::before { content: ""; position: absolute; left: 31px; top: 34px; bottom: -4px; border-left: 3px dashed var(--line); }
+.camp:last-child::before { display: none; }
+.camp.passed::before { border-left: 3px solid var(--accent); }
+.alt { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.peg { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); border: 3px solid var(--line); display: grid; place-items: center; font-size: 15px; font-weight: 700; }
+.camp.open .peg { border-color: var(--flag); color: var(--flag); }
+.camp.passed .peg { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.alt small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; background: var(--paper); padding: 0 2px; }
+.camp-body { background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.camp.open .camp-body { border-color: var(--flag); }
+.camp.locked .camp-body { opacity: .6; }
+.camp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.camp-head .nm { font-family: var(--display); font-size: 21px; }
+.camp-head .tp { font-weight: 700; color: var(--accent); margin-left: 8px; font-size: 16px; }
+.camp-head .st { font-size: 14px; font-weight: 700; color: var(--muted); }
+.camp.open .st { color: var(--flag); } .camp.passed .st { color: var(--good); }
+.tip { margin: 0; font-size: 15px; color: var(--muted); }
+.ex { font-size: 15px; background: var(--paper); border-radius: 10px; padding: 6px 12px; overflow-x: auto; }
+.ex b { font-size: 12px; letter-spacing: .08em; color: var(--muted); margin-right: 8px; }
+.tier { display: flex; flex-direction: column; gap: 6px; }
+.tier-head { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.tier-head .ok { color: var(--good); }
+.routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.route { border: 1.5px solid var(--line); border-radius: 12px; background: var(--paper); padding: 8px 12px; text-align: left; display: flex; flex-direction: column; gap: 2px; min-height: 62px; }
+.route b { font-size: 16px; }
+.route span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.route.done { background: var(--good-soft); border-color: var(--good); }
+.route.done span { color: var(--good); font-weight: 700; }
+.route.going { border-color: var(--flag); }
+.route.essay b::after { content: " ✎"; }
+.banner { background: var(--accent); color: var(--on-accent); border-radius: 14px; padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.banner b { font-family: var(--display); font-weight: 400; font-size: 22px; }
+.banner .btn { border-color: transparent; color: var(--ink); }
+
+/* 문제 화면 */
+.prob { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 960px) { .prob { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.q { font-size: clamp(19px, 3.2vw, 27px); text-align: center; padding: 14px 4px; overflow-x: auto; line-height: 2; word-break: keep-all; }
+.q.text { text-align: left; font-size: clamp(17px, 2.4vw, 21px); }
+.meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 700; color: var(--muted); }
+.meta .miss { color: var(--bad); }
+.log { display: flex; flex-direction: column; gap: 6px; border-top: 1.5px dashed var(--line); padding-top: 12px; }
+.log h3, .now h3 { font-size: 13px; letter-spacing: .08em; color: var(--muted); margin: 0; font-weight: 700; }
+.logline { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 6px; align-items: center; background: var(--good-soft); border-radius: 8px; padding: 6px 10px; overflow-x: auto; font-size: 16px; }
+.logline i { font-style: normal; font-weight: 700; color: var(--good); }
+.logline.new { animation: pop .45s ease-out; }
+.essay-log { white-space: pre-wrap; word-break: break-word; }
+.now { display: flex; flex-direction: column; gap: 12px; }
+.now-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tries { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.tries i { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.tries i.used { background: transparent; border: 2px solid var(--line); }
+.prompt { margin: 0; font-weight: 700; font-size: 17px; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.opt { border: 2px solid var(--line); border-radius: 12px; background: var(--surface); padding: 12px 14px; min-height: 68px; font-size: 17px; overflow-x: auto; text-align: center; }
+.opt.t { text-align: left; font-size: 16px; }
+.opt.wrong { border-color: var(--bad); background: var(--bad-soft); opacity: .7; }
+.fields { display: flex; flex-wrap: wrap; gap: 10px; }
+.field { flex: 1 1 200px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; border: 2px solid var(--line); border-radius: 12px; background: var(--surface); padding: 8px 12px; min-height: 60px; text-align: left; }
+.field .val { font-size: 22px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.field.active { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.field.ok { border-color: var(--good); background: var(--good-soft); }
+.field.no { border-color: var(--bad); background: var(--bad-soft); }
+.pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 440px; width: 100%; margin: 0 auto; }
+.key { border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 23px; font-weight: 700; min-height: 58px; }
+.key:active { background: var(--paper); }
+.key.go { grid-column: span 3; background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-size: 18px; }
+.hint { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+.fb { margin: 0; font-weight: 700; min-height: 1.5em; }
+.fb.no { color: var(--bad); } .fb.ok { color: var(--good); }
+.wait { margin: 0; font-size: 15px; font-weight: 700; color: var(--flag); font-variant-numeric: tabular-nums; }
+.wait:empty { display: none; }
+.opt:disabled, .key:disabled { opacity: .55; cursor: default; }
+.hintbox { border-left: 4px solid var(--flag); background: var(--paper); border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 15px; overflow-x: auto; }
+.hintbox b { display: block; font-size: 13px; letter-spacing: .08em; color: var(--flag); }
+.hintbox p { margin: 2px 0 0; }
+.hintbox p + p { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.done-box { background: var(--good-soft); border: 1.5px solid var(--good); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; animation: pop .5s ease-out; }
+.done-box p { margin: 0; }
+.done-box .route { background: var(--surface); }
+.route:disabled { opacity: .5; cursor: default; }
+.done-box > b { font-family: var(--display); font-weight: 400; font-size: 24px; color: var(--good); }
+.fail-box { background: var(--bad-soft); border: 1.5px solid var(--bad); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.fail-box > b { font-family: var(--display); font-weight: 400; font-size: 21px; color: var(--bad); }
+.fail-box p { margin: 0; }
+.fail-box .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.essay-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.essay-f textarea { width: 100%; border: 2px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 14px; min-height: 64px; resize: vertical; line-height: 1.6; font-size: 17px; font-weight: 400; color: var(--ink); }
+.essay-f textarea:focus { border-color: var(--accent); outline: none; }
+.symbols { display: flex; flex-wrap: wrap; gap: 6px; }
+.symbols button { border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 48px; min-height: 46px; font-size: 18px; font-weight: 700; }
+.shake { animation: shake .3s; }
+@keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@keyframes pop { 0% { transform: scale(.94); opacity: 0; } 60% { transform: scale(1.03); opacity: 1; } 100% { transform: scale(1); } }
+
+/* 등반 기록 */
+.sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.sum div { background: var(--paper); border-radius: 10px; padding: 10px 12px; }
+.sum small { display: block; font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .06em; }
+.sum b { font-family: var(--display); font-weight: 400; font-size: 24px; font-variant-numeric: tabular-nums; }
+.rec { display: flex; flex-direction: column; gap: 8px; border-top: 1.5px solid var(--line); padding-top: 14px; }
+.rec-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-weight: 700; }
+.rec-head span { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rec .q { font-size: 17px; padding: 4px; text-align: left; line-height: 1.9; }
+.empty { color: var(--muted); margin: 0; }
+
+/* 축하 장면 */
+.cele { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: hidden; background-color: var(--surface);
+  background-image: linear-gradient(var(--contour) 1px, transparent 1px), linear-gradient(90deg, var(--contour) 1px, transparent 1px); background-size: 28px 28px;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); animation: fadein .35s ease-out; }
+.cele canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cele-in { position: relative; width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.cele svg { width: 100%; height: auto; max-height: 46vh; display: block; }
+.cele .kicker { font-size: 14px; font-weight: 700; letter-spacing: .14em; color: var(--accent); margin: 0; }
+.cele h2 { font-size: clamp(34px, 8vw, 56px); animation: rise .6s .9s both cubic-bezier(.2, .9, .3, 1.3); }
+.cele .altnum { font-family: var(--display); font-size: clamp(26px, 6vw, 40px); color: var(--flag); font-variant-numeric: tabular-nums; margin: 0; line-height: 1.1; }
+.cele .sub { margin: 0; color: var(--muted); font-size: 16px; animation: rise .5s 1.3s both; }
+.cele .btn { margin-top: 6px; min-width: 200px; animation: rise .5s 1.6s both; }
+@keyframes rise { from { transform: translateY(18px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cele, .cele h2, .cele .sub, .cele .btn, .done-box, .logline.new, .shake { animation: none; }
+  .cv-climber, .cv-strip, .tour-ring, .tour-box { transition: none; } .quake { animation: none; }
+}
+
+/* 개념 정리 팝업 */
+.note { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(8, 20, 24, .66); overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); animation: fadein .25s ease-out; }
+.note-in { width: min(620px, 100%); background: var(--surface); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 12px; border-top: 8px solid var(--flag); animation: pop .4s ease-out; }
+.note-in .kicker { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .1em; color: var(--flag); }
+.note-in .say { margin: 0; font-size: 18px; font-weight: 700; word-break: keep-all; }
+.formula { background: var(--paper); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 10px; overflow-x: auto; font-size: 18px; line-height: 2; }
+.memo { margin: 0; background: var(--paper); border-left: 4px solid var(--flag); border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 16px; }
+.note-in .chk { display: flex; align-items: center; gap: 10px; font-weight: 700; min-height: 48px; }
+.note-in .chk input { width: 24px; height: 24px; accent-color: var(--accent); }
+/* 마지막 관문 */
+.gate { display: flex; flex-direction: column; gap: 14px; }
+.gate-item { display: flex; flex-direction: column; gap: 10px; }
+.gate-item.ok { border-color: var(--good); background: var(--good-soft); }
+.gate-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
+.gate-head .ok { color: var(--good); }
+.blanks { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.blanks label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.blanks input { width: 96px; min-height: 50px; border: 2px solid var(--line); border-radius: 12px; background: var(--surface); padding: 6px 12px; font-size: 20px; text-align: center; }
+.blanks input:focus { border-color: var(--accent); outline: none; }
+.blanks input.no { border-color: var(--bad); background: var(--bad-soft); }
+/* 관리자 */
+.admin { display: flex; flex-direction: column; gap: 14px; }
+.admin .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.admin input[type=password] { flex: 1 1 200px; min-width: 0; min-height: 50px; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--surface); font-size: 17px; }
+.admin .note-line { margin: 0; color: var(--muted); font-size: 14px; }
+.admin .err { margin: 0; color: var(--bad); font-weight: 700; min-height: 1.5em; }
+.tbl-wrap { overflow-x: auto; border: 1.5px solid var(--line); border-radius: 12px; }
+table.rate { border-collapse: collapse; width: 100%; min-width: 720px; font-variant-numeric: tabular-nums; }
+table.rate th, table.rate td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--line); font-size: 15px; }
+table.rate thead th { font-size: 13px; color: var(--muted); background: var(--paper); line-height: 1.3; }
+table.rate thead th small { display: block; font-weight: 400; }
+table.rate tbody th { text-align: left; white-space: nowrap; }
+table.rate tbody th button { border: 0; background: none; font-weight: 700; padding: 6px 0; min-height: 40px; text-decoration: underline; text-underline-offset: 3px; }
+table.rate td b { display: block; font-size: 17px; }
+table.rate td small { color: var(--muted); font-size: 12px; }
+table.rate tr.tot th, table.rate tr.tot td { border-top: 2px solid var(--ink); border-bottom: 0; font-weight: 700; }
+table.rate tr.sel th { box-shadow: inset 4px 0 0 var(--flag); }
+table.list { border-collapse: collapse; width: 100%; min-width: 520px; font-variant-numeric: tabular-nums; }
+table.list th, table.list td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); font-size: 15px; }
+table.list th { font-size: 13px; color: var(--muted); background: var(--paper); }
+@media (prefers-reduced-motion: reduce) { .note, .note-in { animation: none; } }
+
+/* 서술길 쓰는 법 */
+table.how { border-collapse: collapse; width: 100%; }
+table.how th, table.how td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; font-size: 16px; }
+table.how th { font-size: 14px; color: var(--muted); white-space: nowrap; }
+kbd { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+/* 관리자: 서술 답안 */
+table.list tr.sel td { background: var(--paper); }
+.essays { display: flex; flex-direction: column; gap: 12px; }
+.essay-card { border: 1.5px solid var(--line); border-left: 6px solid var(--bad); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.essay-card.ok { border-left-color: var(--good); }
+.essay-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+.essay-head b { color: var(--ink); font-size: 16px; }
+.badge { font-weight: 700; font-size: 13px; padding: 2px 10px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); }
+.badge.ok { background: var(--good-soft); color: var(--good); }
+.essay-card .q { font-size: 17px; padding: 0; text-align: left; line-height: 1.8; }
+.essay-card .essay-log { background: var(--paper); border-radius: 10px; padding: 10px 12px; font-size: 16px; }
+
+/* 첫 화면: 곡선을 오르는 산 */
+.wrap.intro-view { padding-block: 0; max-width: 820px; gap: 0; }
+.hero { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))) calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  background-color: var(--surface); background-image: linear-gradient(var(--contour) 1px, transparent 1px), linear-gradient(90deg, var(--contour) 1px, transparent 1px); background-size: 28px 28px; }
+.hero-top { padding: clamp(20px, 5vh, 44px) clamp(20px, 5vw, 44px) 0; }
+.hero-top .kick { margin: 0; font-family: var(--hand); font-size: clamp(22px, 4.2vw, 32px); color: var(--flag); line-height: 1; }
+.hero-top h1 { font-size: clamp(48px, 12vw, 96px); line-height: 1; margin-top: 6px; }
+.hero-art { flex: 1 1 auto; display: flex; align-items: flex-end; min-height: 0; padding-inline: clamp(0px, 2vw, 20px); }
+.hero-art svg { width: 100%; height: auto; max-height: 56vh; display: block; overflow: visible; }
+.hero-form { background: var(--band); color: var(--on-band); padding: 20px clamp(20px, 5vw, 44px) max(16px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; }
+.hero-form .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.who-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; flex: 0 1 150px; min-width: 110px; }
+.who-f.grow { flex: 1 1 180px; }
+.hero-form input { width: 100%; min-width: 0; border: 0; border-radius: 12px; padding: 10px 14px; background: #FFFFFF; color: #12262B; font-size: 18px; font-weight: 400; min-height: 54px; }
+.hero-form input::placeholder { color: #8A9BA0; }
+.hero-form input:focus-visible { outline: 3px solid var(--flag); outline-offset: 2px; }
+.btn.start { background: var(--flag); border-color: var(--flag); color: #FFFFFF; min-height: 54px; font-size: 19px; padding-inline: 26px; flex: 0 0 auto; }
+.hero-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; }
+.hero-foot .err { margin: 0; color: #FFB4A0; font-weight: 700; }
+.link { background: none; border: 0; color: var(--on-band); opacity: .7; text-decoration: underline; text-underline-offset: 3px; font-size: 14px; min-height: 44px; padding: 0 4px; }
+/* 산 그림 */
+.cv-strip { fill: var(--paper); stroke: var(--surface); stroke-width: 2; transition: fill .8s ease; }
+.cv-strip.on { fill: var(--c); }
+.cv-line { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.cv-axis { stroke: var(--ink); stroke-width: 2; }
+.cv-x { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 13px; fill: var(--ink); text-anchor: middle; }
+.cv-name { font-family: var(--body); font-weight: 700; fill: var(--muted); text-anchor: middle; }
+.cv-name.dark { fill: #FFFFFF; } .cv-name.light { fill: #12262B; }
+.cv-dot { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.cv-pole { stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; }
+.cv-flag { fill: var(--flag); }
+.cv-hand { font-family: var(--hand); font-size: 17px; fill: var(--flag); text-anchor: end; }
+.cv-climber { transition: transform 1.3s cubic-bezier(.45, .05, .3, 1); }
+.cv-climber .head { fill: var(--flag); }
+.cv-climber .body { stroke: var(--ink); stroke-width: 2.4; fill: none; stroke-linecap: round; }
+.cv-climber .stick { stroke: var(--ink); stroke-width: 1.6; }
+.tiers { display: flex; flex-direction: column; gap: 10px; }
+/* 밝게 비추는 안내 */
+.tour { position: fixed; inset: 0; z-index: 55; }
+.tour-ring { position: fixed; border-radius: 14px; box-shadow: 0 0 0 200vmax rgba(8, 20, 24, .76); outline: 3px solid #F2B705; outline-offset: 3px; pointer-events: none; transition: left .4s, top .4s, width .4s, height .4s; }
+.tour-box { position: fixed; background: var(--surface); color: var(--ink); border-radius: 14px; border-top: 6px solid var(--flag); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: top .4s, left .4s; }
+.tour-box .n { font-family: var(--display); font-weight: 400; color: var(--flag); font-size: 15px; }
+.tour-box p { margin: 0; font-size: 17px; line-height: 1.55; word-break: keep-all; }
+.tour-box .btns { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tour-box button { font: inherit; font-weight: 700; border: 0; border-radius: 10px; min-height: 46px; padding: 0 18px; }
+.tour-box .next { background: var(--accent); color: var(--on-accent); }
+.tour-box .prev, .tour-box .skip { background: transparent; color: var(--muted); padding-inline: 8px; }
+
+/* 산사태 장면 */
+.cele.slide .kicker { color: var(--bad); }
+.cele.slide h2 { color: var(--bad); animation-delay: .2s; }
+.cele.slide .sub { animation-delay: 2.1s; max-width: 30em; }
+.cele.slide .btn { animation-delay: 2.5s; }
+.rock { fill: var(--rock2); stroke: var(--ink); stroke-width: 1; opacity: 0; }
+.rock.dust { fill: var(--rock1); stroke: none; }
+.quake { animation: quake .16s linear infinite; }
+@keyframes quake { 0% { transform: translate(0, 0); } 25% { transform: translate(-3px, 2px); } 50% { transform: translate(3px, -1px); } 75% { transform: translate(-2px, -2px); } 100% { transform: translate(0, 0); } }
+
+/* 생각하게 하는 장치: 눌러야 보이는 예시·힌트, 빈칸이 있는 식 */
+.peek { border-style: dashed; color: var(--muted); }
+.fields.few .field { flex: 1 1 130px; }
+.hintbox .hl { display: inline; color: var(--flag); margin-right: 8px; letter-spacing: .08em; font-size: 13px; }
+.now .formula { font-size: clamp(18px, 2.6vw, 24px); text-align: center; }
+
+/* 관리자: 학생 삭제 */
+.btn.danger { border-color: var(--bad); color: var(--bad); }
+.btn.danger.solid { background: var(--bad); color: #FFFFFF; }
+.btn.danger:disabled { border-color: var(--line); color: var(--muted); background: transparent; }
+.note-in.danger { border-top-color: var(--bad); }
+.note-in.danger .kicker { color: var(--bad); }
+.note-in .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.pickbox { width: 24px; height: 24px; accent-color: var(--accent); }
+.admin .okmsg { color: var(--good); font-weight: 700; }
+
+/* 서술길: 기회를 다 쓴 뒤의 선택과 선생님 확인 요청 */
+.essay-log.mine { background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 16px; }
+.pick2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.pick2 .btn { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; min-height: 84px; padding: 12px 14px; }
+.pick2 .btn small { font-weight: 400; font-size: 14px; line-height: 1.4; }
+.fail-box.wait-box { background: var(--paper); border-color: var(--accent); }
+.fail-box.wait-box > b { color: var(--accent); }
+.reviews { display: flex; flex-direction: column; gap: 12px; border: 2px solid var(--flag); border-radius: 14px; padding: 14px; }
+.reviews h2 { color: var(--flag); }
+.essay-card.rv { border-left-color: var(--flag); }
+.essay-card .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 관리자: 문항별 오답률 */
+.admin h2 small { font-family: var(--body); font-size: 15px; font-weight: 700; color: var(--accent); margin-left: 8px; }
+table.items { min-width: 860px; }
+table.items th { white-space: nowrap; font-size: 14px; color: var(--ink); background: transparent; }
+table.items thead th { color: var(--muted); background: var(--paper); font-size: 13px; }
+table.items .qcell { font-size: 14px; max-width: 300px; overflow-x: auto; }
+.meter { display: inline-block; vertical-align: middle; width: 70px; height: 10px; border-radius: 5px; background: var(--paper); border: 1px solid var(--line); overflow: hidden; margin-right: 8px; }
+.meter i { display: block; height: 100%; background: var(--bad); }
+table.items .hot { color: var(--bad); font-weight: 700; }
+table.items .pick { display: inline-block; vertical-align: middle; }
+
+/* 산 그림: 정상 너머 보너스 봉우리 */
+.cv-ridge { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 3 5; stroke-linecap: round; }
+.cv-star { fill: var(--surface); stroke: var(--muted); stroke-width: 1.6; stroke-linejoin: round; transition: fill .5s ease, stroke .5s ease; transform-box: fill-box; transform-origin: center; }
+.cv-star.on { fill: #F2B705; stroke: var(--ink); }
+.cv-star.pop { animation: starpop .7s cubic-bezier(.2, .9, .3, 1.4); }
+.cv-bonus { font-family: var(--body); font-size: 8px; font-weight: 700; fill: var(--muted); text-anchor: middle; letter-spacing: 1px; }
+@keyframes starpop { 0% { transform: scale(.4) rotate(-40deg); } 60% { transform: scale(1.7) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .cv-star, .cv-star.pop { transition: none; animation: none; } }
+
+/* ===================== 위치의 변화량과 움직인 거리: 추가 모양 ===================== */
+.hero-top h1.long { font-size: clamp(34px, 7.4vw, 64px); line-height: 1.08; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.learn-btn.primary { min-height: 56px; font-size: 18px; padding-inline: 24px; }
+.camp::before { top: 34px; }
+
+/* 도로(수직선) 위의 버스 */
+.rt-road { stroke: var(--ink); stroke-width: 2.2; }
+.rt-seg { fill: var(--paper); stroke: var(--line); stroke-width: 1; transition: fill .8s ease; }
+.rt-seg.on { fill: var(--c); stroke: var(--c); }
+.rt-stop { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.rt-stop.on { fill: var(--accent); }
+.rt-name { font-family: var(--body); font-weight: 700; font-size: 11px; fill: var(--muted); text-anchor: middle; }
+.rt-name.on { fill: var(--accent); }
+.rt-end { font-family: var(--body); font-size: 10px; font-weight: 700; fill: var(--muted); text-anchor: middle; }
+.rt-hand { fill: none; stroke: var(--flag); stroke-width: 2.4; stroke-linecap: round; opacity: .55; stroke-dasharray: 2 6; }
+.rt-handlab { font-family: var(--hand); font-size: 19px; fill: var(--flag); text-anchor: end; }
+.rt-bus { transition: transform 1.3s cubic-bezier(.45, .05, .3, 1); }
+.rt-bus .b-body { fill: var(--flag); stroke: var(--ink); stroke-width: 1.4; }
+.rt-bus .b-win { fill: #FFFFFF; opacity: .9; }
+.rt-bus .b-wheel { fill: var(--ink); stroke: var(--surface); stroke-width: 1.6; }
+.rt-star { fill: var(--surface); stroke: var(--muted); stroke-width: 1.6; stroke-linejoin: round; transition: fill .5s ease; transform-box: fill-box; transform-origin: center; }
+.rt-star.on { fill: #F2B705; stroke: var(--ink); }
+.rt-star.pop { animation: starpop .7s cubic-bezier(.2, .9, .3, 1.4); }
+@media (prefers-reduced-motion: reduce) { .rt-bus, .rt-seg, .rt-star { transition: none; animation: none; } }
+
+/* 문제 그림 */
+.fig { display: flex; justify-content: center; padding: 4px 0 8px; }
+.fig svg { width: 100%; max-width: 460px; height: auto; display: block; }
+.q.text small { font-size: .78em; color: var(--muted); }
+
+/* 속도-시간 그래프 */
+.vt-grid { stroke: var(--contour); stroke-width: 1; }
+.vt-tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; font-family: var(--body); }
+.vt-axis { stroke: var(--ink); stroke-width: 1.6; }
+.vt-curve { fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linejoin: round; stroke-linecap: round; }
+.vt-pos { fill: color-mix(in srgb, var(--accent) 38%, transparent); stroke: none; }
+.vt-neg { fill: color-mix(in srgb, var(--flag) 42%, transparent); stroke: none; }
+.vt-lab { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 14px; fill: var(--ink); }
+.vt-cursor { stroke: var(--flag); stroke-width: 1.6; stroke-dasharray: 4 4; }
+.vt-dot { fill: var(--flag); stroke: var(--surface); stroke-width: 2; }
+
+/* 수직선 */
+.nl-axis { stroke: var(--ink); stroke-width: 1.8; }
+.nl-arrhead { fill: var(--ink); }
+.nl-tick { stroke: var(--ink); stroke-width: 1.4; }
+.nl-num { font-size: 11px; fill: var(--muted); text-anchor: middle; font-family: var(--body); font-variant-numeric: tabular-nums; }
+.nl-mark { font-size: 12px; font-weight: 700; fill: var(--ink); text-anchor: middle; font-family: var(--body); }
+.nl-leg { stroke-width: 3; stroke-linecap: round; }
+.nl-leg.c0, .nl-head.c0 { stroke: var(--accent); fill: var(--accent); }
+.nl-leg.c1, .nl-head.c1 { stroke: var(--flag); fill: var(--flag); }
+.nl-leg.c2, .nl-head.c2 { stroke: var(--good); fill: var(--good); }
+.nl-head { stroke: none !important; }
+.nl-drop { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+.nl-pt { fill: var(--flag); stroke: var(--surface); stroke-width: 2; }
+.nl-p { font-size: 10px; font-weight: 700; fill: #FFFFFF; text-anchor: middle; font-family: var(--body); }
+
+/* 개념 설명 */
+.learn { display: flex; flex-direction: column; gap: 14px; }
+.learn-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.learn-head .kicker { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: .08em; color: var(--flag); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); }
+.dots i.seen { background: var(--line); }
+.dots i.on { background: var(--accent); border-color: var(--accent); }
+.learn-body { font-size: 18px; line-height: 1.75; word-break: keep-all; overflow-x: auto; }
+.learn-body p { margin: 0 0 10px; }
+.learn-body .aside { font-size: 15px; color: var(--muted); background: var(--paper); border-radius: 10px; padding: 8px 12px; }
+.learn-body .big { text-align: center; font-size: 1.15em; margin: 6px 0 12px; overflow-x: auto; }
+.learn-nav { display: flex; justify-content: space-between; gap: 10px; }
+.learn-nav .btn { min-width: 120px; }
+.kw { font-weight: 700; padding: 0 4px; border-radius: 5px; white-space: nowrap; }
+.kw.dx { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.kw.ds { background: color-mix(in srgb, var(--flag) 18%, transparent); color: var(--flag); }
+table.cmp { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-bottom: 6px; }
+table.cmp th { text-align: left; vertical-align: top; padding: 10px 12px; background: var(--paper); border-radius: 10px 0 0 10px; width: 9em; font-size: 16px; }
+table.cmp td { padding: 10px 12px; background: var(--paper); border-radius: 0 10px 10px 0; font-size: 16px; line-height: 1.7; }
+.flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; margin: 6px 0 12px; }
+.flow span { border: 2px solid var(--accent); border-radius: 12px; padding: 6px 14px; font-weight: 700; background: var(--surface); }
+.flow b { color: var(--accent); }
+.flow.back span { border-color: var(--flag); } .flow.back b { color: var(--flag); }
+ol.how3 { margin: 0 0 12px; padding-left: 1.4em; } ol.how3 li { margin-bottom: 6px; }
+
+/* 움직임 그림 */
+.mw { border: 1.5px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 10px; background: var(--surface); }
+@media (min-width: 900px) { .mw { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .mw-line { grid-column: 1; } .mw-stats { grid-column: 1; } .mw-graph { grid-column: 2; grid-row: 1 / span 2; } .mw-ctl { grid-column: 1 / -1; } }
+.mw-line svg, .mw-graph svg { width: 100%; height: auto; display: block; }
+.mw-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.mw-st { background: var(--paper); border-radius: 10px; padding: 8px 12px; }
+.mw-st small { display: block; font-size: 13px; font-weight: 700; color: var(--muted); }
+.mw-st b { font-family: var(--display); font-weight: 400; font-size: 26px; font-variant-numeric: tabular-nums; }
+.mw-st.dx b { color: var(--accent); } .mw-st.ds b { color: var(--flag); }
+.mw-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mw-ctl input[type=range] { flex: 1 1 180px; min-width: 0; height: 44px; accent-color: var(--flag); }
+.mw-t { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 6.5em; }
+
+/* 관리자: 오개념 */
+.tag { display: inline-block; font-size: 13px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); margin: 1px 0; }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "global" }, startup: { typeset: false,
+  ready: function () { MathJax.startup.defaultReady(); MathJax.startup.promise.then(function () { window.__mjReady = true; window.__typeset && window.__typeset(); }); } } };
+</script>
+<script>
+/* 위치의 변화량과 움직인 거리 — 단계, 개념 설명, 문제 데이터
+   ─ 선택지(o)는 첫 번째가 정답이며 화면에서 섞어 보여 준다. "T:"로 시작하면 글, 아니면 수식.
+   ─ 수 입력 칸 f = [이름표(수식), 정답, 함정] . 함정 = { "오답값": [오개념 이름표, 안내 문구] }
+   ─ variants 가 있는 문제는 학번에 따라 숫자가 달라진다(판본끼리 단계 수와 함정 구조가 같다).
+   ─ 문항에는 테마 낱말(정류장, 버스 노선)을 넣지 않는다. 테마는 app.js 에서만 입힌다. */
+(function () {
+  /* 오개념 이름표: 관리자 화면에서 이 이름으로 모아 보여 준다 */
+  window.MIS = {
+    pos: "위치와 위치의 변화량 혼동",
+    dist: "위치의 변화량과 움직인 거리 혼동",
+    sign: "음의 속도(뒤로 간 것)를 처리하지 못함",
+    stop: "속도가 0인 순간(방향이 바뀌는 순간)을 못 찾음",
+    split: "방향이 바뀌는 시각에서 구간을 나누지 않음",
+    start: "처음 위치를 빠뜨림",
+    order: "빼는 순서를 거꾸로 함",
+    diff: "미분과 적분의 방향 혼동",
+    ftc: "정적분 = 부정적분의 차이를 적용하지 못함",
+    calc: "부정적분·미분 계산 실수",
+    half: "삼각형 넓이에서 ½을 빠뜨림"
+  };
+
+  var D = function (t) { return "\\(\\displaystyle " + t + "\\)"; };
+  var m = function (t) { return "\\(" + t + "\\)"; };
+  /* 분수 문자열("7/3")을 TeX 로 */
+  function tx(v) {
+    var s = String(v), neg = s.charAt(0) === "-", b = neg ? s.slice(1) : s, k = b.indexOf("/");
+    return (neg ? "-" : "") + (k < 0 ? b : "\\tfrac{" + b.slice(0, k) + "}{" + b.slice(k + 1) + "}");
+  }
+  /* 함정 목록을 만든다. 정답과 같은 값, 이미 넣은 값은 건너뛴다 */
+  function traps(ans, list) {
+    var o = {};
+    list.forEach(function (t) { var k = String(t[0]); if (k !== String(ans) && !o[k]) o[k] = [t[1], t[2]]; });
+    return o;
+  }
+  /* 다항식 계수 [c0, c1, c2 …] 를 TeX 로 (변수 t) */
+  function poly(c) {
+    var s = "";
+    for (var i = c.length - 1; i >= 0; i--) {
+      var a = c[i]; if (!a) continue;
+      var abs = Math.abs(a), sg = a < 0 ? "-" : s ? "+" : "";
+      s += sg + (i === 0 ? abs : (abs === 1 ? "" : abs) + (i === 1 ? "t" : "t^{" + i + "}"));
+    }
+    return s || "0";
+  }
+
+  var ASK_AREA = "그래프의 위쪽(속도 +)과 아래쪽(속도 −)을 나누어 보았나요? 넓이 자체는 항상 양수로 셉니다.";
+  var ASK_F = "고른 식을 미분해 보세요. 처음의 속도 \\(v(t)\\)가 나오나요?";
+  var ASK_SUB = "\\(t\\) 자리에 수를 넣을 때 거듭제곱부터 계산했나요? 분수는 통분해서 계산합니다.";
+
+  /* ───────── 1단계: 왜 배울까? ───────── */
+  function M1(a, b, c) {
+    var dx = c - a, d = Math.abs(b - a) + Math.abs(c - b);
+    return { text: "수직선 위의 점 P가 " + m(a) + "에서 출발하여 " + m(b) + "까지 갔다가, 방향을 바꾸어 " + m(c) + "까지 돌아왔습니다.",
+      fig: { line: [a, b, c] }, steps: [
+        { t: "nums", p: "① 처음 위치와 나중 위치를 쓰세요.",
+          f: [["\\text{처음 위치}", String(a)], ["\\text{나중 위치}", String(c), traps(c, [[b, "pos", "가장 멀리 간 곳이 아니라, 마지막에 도착한 곳이 나중 위치입니다."]])]],
+          h: "출발한 곳이 처음 위치, 맨 마지막에 멈춘 곳이 나중 위치입니다.", ask: "그림에서 화살표가 시작하는 곳과 끝나는 곳을 손가락으로 짚어 보세요." },
+        { t: "nums", p: "② 위치의 변화량을 구하세요.",
+          f: [["\\text{위치의 변화량}", String(dx), traps(dx, [[c, "pos", "나중 위치를 그대로 썼습니다. 처음 위치에서 얼마나 달라졌는지를 구합니다."], [-dx, "order", "처음 위치에서 나중 위치를 뺐습니다. 순서가 거꾸로입니다."], [d, "dist", "그것은 실제로 움직인 길이(움직인 거리)입니다. 위치의 변화량은 처음과 나중만 봅니다."]])]],
+          h: "위치의 변화량 = (나중 위치) − (처음 위치)", ask: "중간에 어디를 다녀왔는지는 잊고, 처음과 나중 두 점만 보세요." },
+        { t: "nums", p: "③ 움직인 거리를 구하세요.",
+          f: [["\\text{움직인 거리}", String(d), traps(d, [[dx, "dist", "그것은 위치의 변화량입니다. 되돌아온 길도 움직인 거리에 넣어야 합니다."], [Math.abs(b - a), "split", "갈 때 움직인 거리만 셌습니다. 돌아올 때 움직인 거리도 더하세요."], [Math.abs(c - b), "split", "돌아올 때 움직인 거리만 셌습니다. 갈 때 움직인 거리도 더하세요."]])]],
+          h: "갈 때 움직인 길이와 돌아올 때 움직인 길이를 각각 구해 더합니다.", ask: "화살표 두 개의 길이를 각각 재어 보세요." }
+      ] };
+  }
+  function M2(go, back) {
+    var dx = go - back, d = go + back;
+    return { text: "동서로 뻗은 직선 도로에서 동쪽을 양의 방향으로 정합니다. 버스가 " + m(0) + "에서 출발하여 동쪽으로 " + m(go + "\\text{ km}") + "를 간 뒤, 서쪽으로 " + m(back + "\\text{ km}") + "를 갔습니다.",
+      fig: { line: [0, go, dx] }, steps: [
+        { t: "choice", p: "① 이 버스의 위치의 변화량은 음수입니다. 위치의 변화량이 음수라는 것은 무슨 뜻일까요?",
+          o: ["T:버스가 처음 위치보다 음의 방향(서쪽)에 있다.", "T:버스가 점점 느려졌다.", "T:버스가 움직인 거리가 줄어들었다.", "T:계산이 틀렸다. 위치의 변화량은 항상 양수이다."],
+          w: [null, "빠르기와는 관계가 없습니다. 위치의 변화량의 부호는 ‘어느 쪽에 있는가’를 알려 줍니다.", "움직인 거리는 줄어들지 않습니다. 움직일수록 계속 늘어납니다.", "위치의 변화량은 방향을 담고 있어서 음수가 될 수 있습니다."],
+          tg: [null, "sign", "dist", "sign"],
+          h: "처음 위치가 0이고 위치의 변화량이 음수이면, 나중 위치는 0보다 왼쪽(음의 방향)입니다.", ask: "그림에서 버스가 마지막에 0의 왼쪽에 있나요, 오른쪽에 있나요?" },
+        { t: "nums", p: "② 위치의 변화량을 구하세요. (단위 km)",
+          f: [["\\text{위치의 변화량}", String(dx), traps(dx, [[-dx, "sign", "방향을 생각하지 않았습니다. 서쪽은 음의 방향입니다."], [d, "dist", "그것은 움직인 거리입니다. 위치의 변화량은 처음과 나중만 봅니다."]])]],
+          h: "동쪽으로 간 것은 +, 서쪽으로 간 것은 −로 계산해 모두 더합니다.", ask: "+" + go + "와 −" + back + "를 더하면 얼마인가요?" },
+        { t: "nums", p: "③ 움직인 거리를 구하세요. (단위 km)",
+          f: [["\\text{움직인 거리}", String(d), traps(d, [[-dx, "dist", "위치의 변화량의 크기만 구했습니다. 실제로 달린 길이를 모두 더하세요."], [dx, "dist", "그것은 위치의 변화량입니다. 움직인 거리는 음수가 될 수 없습니다."]])]],
+          h: "방향과 관계없이 달린 길이를 모두 더합니다.", ask: "자동차 계기판의 주행 거리는 뒤로 가면 줄어드나요?" }
+      ] };
+  }
+
+  /* ───────── 2단계: 미분과 적분의 관계 ───────── */
+  function R1(a, b) {
+    var x2 = 2 * a - 4 * b;
+    return { text: "직선 경로를 달리던 자율 주행 버스가 제동한 지 " + m("t") + "초 후의 위치가 " + m("x(t)=" + a + "t-" + b + "t^{2}") + " (m)입니다. " + m("(0\\le t\\le 2)") + " <small>(교과서 생각 열기)</small>",
+      steps: [
+        { t: "choice", p: "① 위치 \\(x(t)\\)를 \\(t\\)에 대하여 미분하면 무엇이 될까요?",
+          o: ["T:속도 \\(v(t)\\)", "T:움직인 거리", "T:위치의 변화량", "T:처음 위치"],
+          w: [null, "움직인 거리는 속도를 ‘적분’해서 구하는 양입니다. 미분 쪽이 아닙니다.", "위치의 변화량은 속도를 ‘적분’해서 구합니다. 미분하면 무엇이 되는지 떠올려 보세요.", "처음 위치는 \\(t=0\\)을 넣은 값입니다. 미분과는 다릅니다."],
+          tg: [null, "diff", "diff", "pos"],
+          h: "위치를 미분하면 속도, 속도를 미분하면 가속도입니다. (미적분Ⅰ 미분 단원)", ask: "1초 동안 위치가 얼마나 변하는지를 나타내는 양은 무엇인가요?" },
+        { t: "nums", p: "② 속도를 구하세요. 빈칸에 알맞은 수를 씁니다.", show: "v(t)=x'(t)=(가)-(나)t", full: "v(t)=x'(t)=" + a + "-" + 2 * b + "t",
+          f: [["\\text{(가)}", String(a)], ["\\text{(나)}", String(2 * b), traps(2 * b, [[b, "calc", "\\(t^{2}\\)을 미분하면 \\(2t\\)입니다. 지수 2를 앞으로 내려 곱하세요."]])]],
+          h: "\\(at\\)를 미분하면 \\(a\\), \\(bt^{2}\\)을 미분하면 \\(2bt\\)입니다.", ask: "\\(t^{2}\\)을 미분하면 무엇이었나요?" },
+        { t: "choice", p: "③ \\(x(t)\\)는 \\(v(t)\\)의 한 부정적분입니다. 정적분 \\(\\int_{0}^{2}v(t)\\,dt\\)를 \\(x(t)\\)로 나타낸 것을 고르세요.",
+          o: ["\\int_{0}^{2}v(t)\\,dt=x(2)-x(0)", "\\int_{0}^{2}v(t)\\,dt=x(0)-x(2)", "\\int_{0}^{2}v(t)\\,dt=x(2)+x(0)", "\\int_{0}^{2}v(t)\\,dt=v(2)-v(0)"],
+          w: [null, "위끝을 넣은 값에서 아래끝을 넣은 값을 뺍니다. 순서가 거꾸로입니다.", "정적분은 부정적분의 ‘차이’입니다. 더하지 않습니다.", "\\(v\\)의 부정적분은 \\(v\\)가 아니라 \\(x\\)입니다. 적분 기호 안의 함수에 대입하는 것이 아닙니다."],
+          tg: [null, "order", "ftc", "ftc"],
+          h: "\\(F(t)\\)가 \\(f(t)\\)의 한 부정적분이면 \\(\\int_{a}^{b}f(t)\\,dt=F(b)-F(a)\\)입니다.", ask: "정적분은 부정적분에 무엇을 넣은 값에서 무엇을 넣은 값을 빼는 것이었나요?" },
+        { t: "nums", p: "④ 값을 계산하세요.", show: "\\int_{0}^{2}v(t)\\,dt=x(2)-x(0)=(가)-(나)=(다)", full: "\\int_{0}^{2}v(t)\\,dt=x(2)-x(0)=" + x2 + "-0=" + x2,
+          f: [["\\text{(가)}", String(x2)], ["\\text{(나)}", "0"], ["\\text{(다)}", String(x2)]],
+          h: "\\(x(2)=" + a + "\\times2-" + b + "\\times2^{2}\\), \\(x(0)=0\\)입니다.", ask: ASK_SUB }
+      ] };
+  }
+
+  /* ───────── 3단계: 속도를 적분하면 위치의 변화량 ───────── */
+  function P1(v1, v2) {
+    var A1 = 2 * v1, A2 = -2 * v2, dx = A1 - A2;
+    return { text: "수직선 위를 움직이는 점 P의 속도 " + m("v(t)") + "의 그래프입니다. 처음 2초 동안은 속도가 " + m(v1) + ", 다음 2초 동안은 " + m(v2) + "입니다. 시각 " + m("t=0") + "에서 " + m("t=4") + "까지 점 P의 위치의 변화량을 구하세요.",
+      fig: { pc: [[0, 2, v1], [2, 4, v2]], t1: 4 }, steps: [
+        { t: "nums", p: "① 그래프와 \\(t\\)축 사이의 넓이를 각각 구하세요. (넓이는 양수)",
+          f: [["\\text{위쪽 넓이 }(0\\le t\\le 2)", String(A1)], ["\\text{아래쪽 넓이 }(2\\le t\\le 4)", String(A2), traps(A2, [[-A2, "sign", "넓이는 양수로 씁니다. 부호(뒤로 갔다는 것)는 다음 줄에서 생각합니다."]])]],
+          h: "직사각형의 넓이 = 가로 × 세로. 가로는 시간 2초, 세로는 속도의 크기입니다.", ask: ASK_AREA },
+        { t: "choice", p: "② 위치의 변화량을 구하는 식을 고르세요.",
+          o: [A1 + "-" + A2, A1 + "+" + A2, A2 + "-" + A1, A1 + "\\times" + A2],
+          w: [null, "더하면 움직인 거리입니다. 속도가 음수인 동안은 뒤로 갔으므로 위치는 그만큼 줄어듭니다.", "앞으로 간 만큼에서 뒤로 간 만큼을 빼야 합니다. 순서가 거꾸로입니다.", "넓이를 곱하는 것이 아닙니다. 앞으로 간 만큼과 뒤로 간 만큼을 생각하세요."],
+          tg: [null, "sign", "order", "ftc"],
+          h: "\\(t\\)축 위쪽 넓이는 앞으로 간 만큼(+), 아래쪽 넓이는 뒤로 간 만큼(−)입니다.", ask: "속도가 음수인 2초 동안 점 P는 어느 쪽으로 움직였나요?" },
+        { t: "nums", p: "③ 위치의 변화량을 구하세요.",
+          f: [["\\int_{0}^{4}v(t)\\,dt", String(dx), traps(dx, [[A1 + A2, "sign", "뒤로 간 만큼을 더했습니다. 위치의 변화량에서는 빼야 합니다."]])]],
+          h: "(위쪽 넓이) − (아래쪽 넓이)", ask: "②에서 고른 식을 그대로 계산해 보세요." }
+      ] };
+  }
+  function P2(a, b, T, x0) {
+    var area = a * T / 2, fin = x0 + area;
+    return { text: "점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=" + a + "-" + (b === 1 ? "" : b) + "t") + " " + m("(0\\le t\\le " + T + ")") + "이고, 시각 " + m("t=0") + "에서 점 P의 위치는 " + m(x0) + "입니다.",
+      fig: { poly: [a, -b], t1: T }, steps: [
+        { t: "nums", p: "① 그래프와 \\(t\\)축이 만드는 삼각형의 밑변과 높이를 쓰세요.",
+          f: [["\\text{밑변}", String(T)], ["\\text{높이}=v(0)", String(a)]],
+          h: "밑변은 \\(t=0\\)부터 \\(t=" + T + "\\)까지의 시간, 높이는 \\(t=0\\)일 때의 속도입니다.", ask: "그래프가 \\(t\\)축과 만나는 곳과 \\(v\\)축과 만나는 곳을 찾아보세요." },
+        { t: "nums", p: "② \\(t=0\\)부터 \\(t=" + T + "\\)까지 위치의 변화량을 구하세요.",
+          f: [["\\int_{0}^{" + T + "}v(t)\\,dt", String(area), traps(area, [[a * T, "half", "삼각형의 넓이는 (밑변) × (높이)에 \\(\\tfrac{1}{2}\\)을 곱합니다."]])]],
+          h: "삼각형의 넓이 = \\(\\tfrac{1}{2}\\) × 밑변 × 높이", ask: "삼각형 넓이 공식을 떠올려 보세요." },
+        { t: "choice", p: "③ 시각 \\(t=" + T + "\\)에서 점 P의 위치를 구하는 식을 고르세요.",
+          o: [x0 + "+" + area, String(area), area + "-" + x0, String(x0)],
+          w: [null, "그것은 위치의 변화량입니다. 점 P는 0이 아니라 \\(" + x0 + "\\)에서 출발했습니다.", "처음 위치를 빼는 것이 아니라, 처음 위치에 위치의 변화량을 더합니다.", "처음 위치 그대로입니다. 그동안 움직인 것이 반영되지 않았습니다."],
+          tg: [null, "start", "start", "pos"],
+          h: "(나중 위치) = (처음 위치) + (위치의 변화량)", ask: "출발점이 0이 아니면 무엇을 더해야 할까요?" },
+        { t: "nums", p: "④ 시각 \\(t=" + T + "\\)에서 점 P의 위치를 구하세요.",
+          f: [["x(" + T + ")", String(fin), traps(fin, [[area, "start", "위치의 변화량만 썼습니다. 처음 위치 \\(" + x0 + "\\)을 더하세요."]])]],
+          h: "③에서 고른 식을 계산합니다.", ask: "③에서 고른 식을 그대로 계산했나요?" }
+      ] };
+  }
+
+  /* 직선 속도 v = a − bt, 0 ≤ t ≤ T 에서 방향이 한 번 바뀌는 경우 (4단계) */
+  function S1(a, b, T) {
+    var s = a / b, A1 = a * s / 2, A2 = (b * T - a) * (T - s) / 2, dx = A1 - A2, d = A1 + A2;
+    return { text: "점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=" + a + "-" + (b === 1 ? "" : b) + "t") + " " + m("(0\\le t\\le " + T + ")") + "입니다. 그래프를 보고 답하세요.",
+      fig: { poly: [a, -b], t1: T }, steps: [
+        { t: "nums", p: "① 속도가 0이 되는 시각을 구하세요. (점 P가 멈춰서 방향을 바꾸는 순간)",
+          f: [["t", String(s), traps(s, [[a, "stop", "그것은 \\(t=0\\)일 때의 속도입니다. \\(v(t)=0\\)이 되는 \\(t\\)를 찾으세요."]])]],
+          h: "\\(" + a + "-" + (b === 1 ? "" : b) + "t=0\\)을 풉니다. 그래프에서는 \\(t\\)축과 만나는 곳입니다.", ask: "그래프가 \\(t\\)축과 만나는 곳은 어디인가요?" },
+        { t: "nums", p: "② 그래프와 \\(t\\)축 사이의 넓이를 각각 구하세요. (넓이는 양수)",
+          f: [["\\text{위쪽 넓이}", String(A1), traps(A1, [[a * s, "half", "삼각형의 넓이는 (밑변) × (높이)에 \\(\\tfrac{1}{2}\\)을 곱합니다."]])], ["\\text{아래쪽 넓이}", String(A2), traps(A2, [[-A2, "sign", "넓이는 양수로 씁니다. 부호는 다음 줄에서 생각합니다."]])]],
+          h: "두 삼각형으로 나누어 계산합니다. 아래쪽 삼각형의 높이는 \\(t=" + T + "\\)일 때 속도의 크기 \\(" + (b * T - a) + "\\)입니다.", ask: ASK_AREA },
+        { t: "nums", p: "③ \\(t=0\\)부터 \\(t=" + T + "\\)까지 위치의 변화량을 구하세요.",
+          f: [["\\int_{0}^{" + T + "}v(t)\\,dt", String(dx), traps(dx, [[d, "sign", "뒤로 간 만큼을 더했습니다. 위치의 변화량에서는 아래쪽 넓이를 뺍니다."], [-dx, "order", "앞으로 간 만큼에서 뒤로 간 만큼을 빼야 합니다. 순서가 거꾸로입니다."]])]],
+          h: "위치의 변화량 = (위쪽 넓이) − (아래쪽 넓이)", ask: "아래쪽 넓이는 앞으로 간 것인가요, 뒤로 간 것인가요?" },
+        { t: "nums", p: "④ \\(t=0\\)부터 \\(t=" + T + "\\)까지 움직인 거리를 구하세요.",
+          f: [["\\int_{0}^{" + T + "}|v(t)|\\,dt", String(d), traps(d, [[dx, "sign", "그것은 위치의 변화량입니다. 움직인 거리에서는 뒤로 간 것도 더합니다."], [A1, "split", "멈춘 뒤 뒤로 간 부분을 빠뜨렸습니다. 아래쪽 넓이도 더하세요."]])]],
+          h: "움직인 거리 = (위쪽 넓이) + (아래쪽 넓이)", ask: "뒤로 간 것도 ‘움직인’ 것인가요?" }
+      ] };
+  }
+
+  window.CAMPS = [
+    { key: "M", name: "1단계", topic: "왜 배울까?", tip: "위치의 변화량은 처음과 나중만, 움직인 거리는 실제로 움직인 길이 전부",
+      ex: "2\\to7\\to4:\\ \\text{위치의 변화량}=4-2=2,\\ \\ \\text{움직인 거리}=5+3=8",
+      tiers: [{ label: "확인 문제", ids: ["M1", "M2"] }],
+      probs: [
+        { id: "M1", pts: 10, road: "수직선 위의 점", short: "갔다가 돌아오기", variants: [M1(2, 7, 4), M1(1, 6, 3), M1(3, 8, 5)] },
+        { id: "M2", pts: 10, road: "동서로 가는 버스", short: "위치의 변화량이 음수", variants: [M2(3, 5), M2(2, 6), M2(4, 7)] }
+      ] },
+    { key: "R", name: "2단계", topic: "미분과 적분의 관계", tip: "위치를 미분하면 속도, 속도를 정적분하면 (나중 위치) − (처음 위치)",
+      ex: "\\int_{a}^{b}v(t)\\,dt=x(b)-x(a)",
+      tiers: [{ label: "빈칸 채우기", ids: ["R1"] }, { label: "적분상수는 어디로?", ids: ["R2"] }],
+      probs: [
+        { id: "R1", pts: 20, road: "버스의 위치와 속도", short: "x(t)를 미분·정적분", variants: [R1(12, 3), R1(8, 2), R1(16, 4)] },
+        { id: "R2", pts: 10, road: "적분상수", short: "C는 빼면 사라진다",
+          text: "부정적분은 하나가 아닙니다. " + m("12t-3t^{2}") + "에 상수 " + m("C") + "를 더한 " + m("12t-3t^{2}+C") + "도 미분하면 " + m("v(t)=12-6t") + "가 됩니다. " + m("x(t)=12t-3t^{2}") + "이라 할 때, " + m("x(t)+C") + "를 부정적분으로 써서 정적분을 계산해 봅시다.",
+          steps: [
+            { t: "nums", p: "① 빈칸에 알맞은 수를 쓰세요.", show: "\\{x(2)+C\\}-\\{x(0)+C\\}=x(2)-x(0)+(가)", full: "\\{x(2)+C\\}-\\{x(0)+C\\}=x(2)-x(0)+0",
+              f: [["\\text{(가)}", "0"]], h: "\\(C\\)에서 \\(C\\)를 빼면 얼마인가요?", ask: "괄호를 풀면 \\(+C\\)와 \\(-C\\)가 생깁니다. 둘을 더하면?" },
+            { t: "choice", p: "② 그러면 \\(\\int_{0}^{2}(12-6t)\\,dt\\)의 값은?",
+              o: ["T:\\(C\\)와 관계없이 \\(12\\)이다.", "T:\\(12+C\\)이다.", "T:\\(12+2C\\)이다.", "T:\\(C\\)를 몰라서 구할 수 없다."],
+              w: [null, "①에서 \\(C\\)가 사라졌습니다. 정적분의 값에는 \\(C\\)가 남지 않습니다.", "①에서 \\(C\\)가 사라졌습니다. \\(C\\)를 두 번 더한 것이 아니라 더하고 뺀 것입니다.", "어떤 부정적분을 써도 \\(C\\)는 빼면 사라지므로 값을 구할 수 있습니다."],
+              tg: [null, "ftc", "ftc", "ftc"],
+              h: "그래서 정적분을 계산할 때는 적분상수를 0으로 두고 계산해도 됩니다.", ask: "①의 결과를 다시 보세요. \\(C\\)가 남았나요?" }
+          ] }
+      ] },
+    { key: "P", name: "3단계", topic: "속도를 적분하면 위치의 변화량", tip: "속도 그래프의 위쪽 넓이는 +, 아래쪽 넓이는 −로 더한 값 = 위치의 변화량",
+      ex: "\\int_{a}^{b}v(t)\\,dt=(\\text{위쪽 넓이})-(\\text{아래쪽 넓이}),\\quad x(b)=x(a)+\\int_{a}^{b}v(t)\\,dt",
+      tiers: [{ label: "그래프 넓이로", ids: ["P1", "P2"] }, { label: "식으로 계산", ids: ["P3", "P4"] }],
+      probs: [
+        { id: "P1", pts: 10, road: "계단 모양 그래프", short: "앞으로 갔다 뒤로", variants: [P1(3, -1), P1(4, -1), P1(3, -2)] },
+        { id: "P2", pts: 20, road: "출발점이 0이 아닐 때", short: "처음 위치 + 변화량", variants: [P2(6, 2, 3, 5), P2(8, 2, 4, 3), P2(6, 3, 2, 4)] },
+        { id: "P3", pts: 20, road: "교과서 문제", short: "v=t²−3t+2, 1→3",
+          text: "수직선 위를 움직이는 점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=t^{2}-3t+2") + "일 때, 시각 " + m("t=1") + "에서 " + m("t=3") + "까지 점 P의 위치의 변화량을 구하시오. <small>(교과서 문제 1)</small>",
+          fig: { poly: [2, -3, 1], t0: 1, t1: 3 },
+          steps: [
+            { t: "choice", p: "① 속도 \\(v(t)\\)의 부정적분 \\(F(t)\\)를 고르세요. (적분상수는 0)",
+              o: ["\\tfrac{1}{3}t^{3}-\\tfrac{3}{2}t^{2}+2t", "t^{3}-3t^{2}+2t", "2t-3", "\\tfrac{1}{3}t^{3}-3t^{2}+2t"],
+              w: [null, "차수만 올리고, 올린 차수로 나누지 않았습니다.", "이것은 적분이 아니라 미분한 결과입니다.", "\\(-3t\\)를 적분할 때 올린 차수 2로 나누지 않았습니다."],
+              tg: [null, "calc", "diff", "calc"],
+              h: "각 항의 차수를 1 올리고, 올린 차수로 나눕니다.", ask: ASK_F },
+            { t: "nums", p: "② 위끝과 아래끝을 대입한 값을 쓰세요.",
+              f: [["F(3)", "3/2"], ["F(1)", "5/6"]], h: "\\(F(3)=9-\\tfrac{27}{2}+6\\), \\(F(1)=\\tfrac{1}{3}-\\tfrac{3}{2}+2\\)", ask: ASK_SUB },
+            { t: "nums", p: "③ 위치의 변화량을 구하세요.",
+              f: [["\\int_{1}^{3}v(t)\\,dt", "2/3", traps("2/3", [["7/3", "ftc", "두 값을 더했습니다. \\(F(3)-F(1)\\)처럼 빼야 합니다."], ["-2/3", "order", "\\(F(1)-F(3)\\)으로 거꾸로 뺐습니다."]])]],
+              h: "\\(F(3)-F(1)\\)을 계산합니다. 통분하면 \\(\\tfrac{9}{6}-\\tfrac{5}{6}\\)", ask: "위끝을 넣은 값에서 아래끝을 넣은 값을 뺐나요?" }
+          ] },
+        { id: "P4", pts: 20, road: "제자리로?", short: "v=3t²−4t, 0→2",
+          text: "수직선 위를 움직이는 점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=3t^{2}-4t") + "일 때, 시각 " + m("t=0") + "에서 " + m("t=2") + "까지 점 P의 위치의 변화량을 구하시오.",
+          fig: { poly: [0, -4, 3], t1: 2 },
+          steps: [
+            { t: "choice", p: "① 속도 \\(v(t)\\)의 부정적분 \\(F(t)\\)를 고르세요. (적분상수는 0)",
+              o: ["t^{3}-2t^{2}", "3t^{3}-4t^{2}", "6t-4", "t^{3}-4t^{2}"],
+              w: [null, "차수만 올리고, 올린 차수로 나누지 않았습니다.", "이것은 적분이 아니라 미분한 결과입니다.", "\\(-4t\\)를 적분할 때 올린 차수 2로 나누지 않았습니다."],
+              tg: [null, "calc", "diff", "calc"],
+              h: "\\(3t^{2}\\to t^{3}\\), \\(-4t\\to -2t^{2}\\)", ask: ASK_F },
+            { t: "nums", p: "② 위끝과 아래끝을 대입한 값을 쓰세요.", f: [["F(2)", "0"], ["F(0)", "0"]], h: "\\(F(2)=8-8\\)", ask: ASK_SUB },
+            { t: "nums", p: "③ 위치의 변화량을 구하세요.", f: [["\\int_{0}^{2}v(t)\\,dt", "0"]], h: "\\(F(2)-F(0)\\)", ask: "②에서 구한 두 값을 빼 보세요." },
+            { t: "choice", p: "④ 위치의 변화량이 0이라는 것은 무슨 뜻일까요?",
+              o: ["T:2초 뒤 점 P는 출발한 곳에 다시 와 있다.", "T:점 P는 2초 동안 움직이지 않았다.", "T:점 P의 속도는 항상 0이었다.", "T:점 P가 움직인 거리는 0이다."],
+              w: [null, "그래프를 보면 속도가 0이 아닌 때가 있습니다. 움직였지만 제자리로 돌아온 것입니다.", "그래프를 보면 속도가 0이 아닌 때가 많습니다.", "위치의 변화량이 0이어도 움직인 거리는 0이 아닐 수 있습니다. 다음 단계에서 배웁니다."],
+              tg: [null, "dist", "dist", "dist"],
+              h: "속도 그래프에서 아래쪽 넓이와 위쪽 넓이가 같으면 위치의 변화량은 0입니다.", ask: "그래프에 \\(t\\)축 아래쪽 부분과 위쪽 부분이 있나요?" }
+          ] }
+      ] },
+    { key: "S", name: "4단계", topic: "|속도|를 적분하면 움직인 거리", tip: "속도가 0인 시각에서 구간을 나누고, 넓이를 모두 양수로 더한다",
+      ex: "\\int_{0}^{4}|4-2t|\\,dt=\\int_{0}^{2}(4-2t)\\,dt+\\int_{2}^{4}(2t-4)\\,dt=4+4=8",
+      tiers: [{ label: "그래프 넓이로", ids: ["S1", "S2"] }, { label: "식으로 계산", ids: ["S3", "S4"] }],
+      probs: [
+        { id: "S1", pts: 20, road: "방향을 바꾸는 점", short: "직선 속도, 방향 바뀜", variants: [S1(4, 2, 4), S1(6, 2, 4), S1(8, 4, 3)] },
+        { id: "S2", pts: 20, road: "쏘아 올린 공", short: "v=20−10t, 0→3",
+          text: "지면에서 " + m("20\\text{ m/s}") + "의 속도로 지면과 수직으로 쏘아 올린 공의 " + m("t") + "초 후의 속도가 " + m("v(t)=20-10t") + " (m/s)입니다. " + m("(0\\le t\\le 3)") + " <small>(교과서 예제 2)</small>",
+          fig: { poly: [20, -10], t1: 3 },
+          steps: [
+            { t: "choice", p: "① 공이 가장 높이 올라간 순간은 언제일까요?",
+              o: ["T:속도가 0이 되는 \\(t=2\\)", "T:마지막 순간인 \\(t=3\\)", "T:속도가 가장 큰 \\(t=0\\)", "T:중간인 \\(t=1.5\\)"],
+              w: [null, "\\(t=2\\) 뒤에는 속도가 음수, 즉 공이 내려오고 있습니다.", "\\(t=0\\)은 막 던진 순간입니다. 공은 그 뒤로도 계속 올라갑니다.", "공이 올라가다 멈추는 순간을 찾아야 합니다."],
+              tg: [null, "stop", "stop", "stop"],
+              h: "올라가던 공이 멈추는 순간(속도 0)이 가장 높은 순간입니다. 그 뒤로는 내려옵니다.", ask: "공이 올라가다가 내려오기 시작하는 순간, 속도는 얼마일까요?" },
+            { t: "nums", p: "② 그래프와 \\(t\\)축 사이의 넓이를 각각 구하세요. (넓이는 양수)",
+              f: [["\\text{위쪽 넓이 }(0\\le t\\le 2)", "20", traps("20", [["40", "half", "삼각형의 넓이는 (밑변) × (높이)에 \\(\\tfrac{1}{2}\\)을 곱합니다."]])], ["\\text{아래쪽 넓이 }(2\\le t\\le 3)", "5", traps("5", [["-5", "sign", "넓이는 양수로 씁니다."], ["10", "half", "삼각형의 넓이는 (밑변) × (높이)에 \\(\\tfrac{1}{2}\\)을 곱합니다."]])]],
+              h: "위쪽 삼각형: 밑변 2, 높이 20. 아래쪽 삼각형: 밑변 1, 높이 10.", ask: ASK_AREA },
+            { t: "nums", p: "③ 공이 가장 높이 올라갔을 때 지면으로부터의 높이(m)를 구하세요.",
+              f: [["\\int_{0}^{2}v(t)\\,dt", "20", traps("20", [["25", "dist", "그것은 3초까지 움직인 거리입니다. 가장 높은 순간인 \\(t=2\\)까지만 봅니다."], ["15", "pos", "그것은 \\(t=3\\)일 때의 높이입니다. 가장 높은 순간은 \\(t=2\\)입니다."]])]],
+              h: "지면(0)에서 출발했으므로 \\(t=2\\)까지의 위치의 변화량이 곧 높이입니다.", ask: "0초부터 2초까지 공은 한 방향으로만 움직였나요?" },
+            { t: "nums", p: "④ 공을 쏘아 올린 후 3초 동안 공이 움직인 거리(m)를 구하세요.",
+              f: [["\\int_{0}^{3}|v(t)|\\,dt", "25", traps("25", [["15", "sign", "그것은 위치의 변화량(3초 뒤의 높이)입니다. 내려온 5 m도 움직인 거리에 더해야 합니다."], ["20", "split", "올라간 거리만 셌습니다. 내려온 거리도 더하세요."]])]],
+              h: "올라간 거리 20 m + 내려온 거리 5 m", ask: "공은 올라가기만 했나요, 내려오기도 했나요?" }
+          ] },
+        { id: "S3", pts: 30, road: "교과서 예제", short: "v=t²−6t+5, 0→3",
+          text: "수직선 위를 움직이는 점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=t^{2}-6t+5") + "일 때, 시각 " + m("t=0") + "에서 " + m("t=3") + "까지 점 P가 움직인 거리를 구하시오. <small>(교과서 예제 1)</small>",
+          fig: { poly: [5, -6, 1], t1: 3 },
+          steps: [
+            { t: "nums", p: "① \\(v(t)=(t-1)(t-5)\\)입니다. \\(0<t<3\\)에서 속도가 0이 되는 시각을 구하세요.",
+              f: [["t", "1", traps("1", [["5", "stop", "\\(t=5\\)도 \\(v(t)=0\\)이지만 0과 3 사이에 있지 않습니다."]])]],
+              h: "\\((t-1)(t-5)=0\\)에서 \\(t=1\\) 또는 \\(t=5\\). 이 중 0과 3 사이에 있는 값을 고릅니다.", ask: "그래프가 \\(t\\)축과 만나는 곳은 어디인가요?" },
+            { t: "choice", p: "② 절댓값을 없애고 구간을 나눈 식을 고르세요.",
+              o: ["\\int_{0}^{1}(t^{2}-6t+5)\\,dt+\\int_{1}^{3}(-t^{2}+6t-5)\\,dt", "\\int_{0}^{1}(-t^{2}+6t-5)\\,dt+\\int_{1}^{3}(t^{2}-6t+5)\\,dt", "\\int_{0}^{3}(t^{2}-6t+5)\\,dt", "\\int_{0}^{5}(t^{2}-6t+5)\\,dt"],
+              w: [null, "부호가 반대입니다. \\(t=0\\)을 넣으면 \\(v(0)=5>0\\)이므로 앞 구간은 그대로 둡니다.", "구간을 나누지 않았습니다. 이 식은 위치의 변화량입니다.", "구간은 0부터 3까지입니다. 나누는 점은 속도가 0인 시각입니다."],
+              tg: [null, "sign", "split", "stop"],
+              h: "속도가 음수인 구간(1 < t < 3)에서는 식 앞에 −를 붙여 양수로 만듭니다.", ask: "\\(t=2\\)를 넣으면 \\(v(2)\\)는 양수인가요, 음수인가요?" },
+            { t: "nums", p: "③ 나눈 두 정적분의 값을 각각 구하세요.",
+              f: [["\\int_{0}^{1}(t^{2}-6t+5)\\,dt", "7/3"], ["\\int_{1}^{3}(-t^{2}+6t-5)\\,dt", "16/3", traps("16/3", [["-16/3", "sign", "앞에 −를 붙인 식이므로 값은 양수가 되어야 합니다."]])]],
+              h: "\\(F(t)=\\tfrac{1}{3}t^{3}-3t^{2}+5t\\)이면 \\(F(0)=0\\), \\(F(1)=\\tfrac{7}{3}\\), \\(F(3)=-3\\)입니다.", ask: "움직인 거리를 이루는 조각이므로 두 값 모두 양수가 나와야 합니다." },
+            { t: "nums", p: "④ 움직인 거리를 구하세요.",
+              f: [["\\int_{0}^{3}|v(t)|\\,dt", "23/3", traps("23/3", [["-3", "split", "구간을 나누지 않고 \\(\\int_{0}^{3}v(t)\\,dt\\)를 계산했습니다. 그것은 위치의 변화량입니다."], ["3", "split", "구간을 나누지 않은 값의 크기입니다. 두 조각을 각각 구해 더하세요."]])]],
+              h: "③에서 구한 두 값을 더합니다.", ask: "③의 두 값을 더했나요?" }
+          ] },
+        { id: "S4", pts: 30, road: "교과서 문제", short: "v=3t²−12, 1→4",
+          text: "수직선 위를 움직이는 점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=3t^{2}-12") + "일 때, 시각 " + m("t=1") + "에서 " + m("t=4") + "까지 점 P가 움직인 거리를 구하시오. <small>(교과서 문제 2)</small>",
+          fig: { poly: [-12, 0, 3], t0: 1, t1: 4 },
+          steps: [
+            { t: "nums", p: "① \\(1<t<4\\)에서 속도가 0이 되는 시각을 구하세요.",
+              f: [["t", "2", traps("2", [["-2", "stop", "\\(t=-2\\)는 1과 4 사이에 있지 않습니다."]])]],
+              h: "\\(3t^{2}-12=3(t-2)(t+2)=0\\)", ask: "\\(3t^{2}-12\\)를 인수분해해 보세요." },
+            { t: "choice", p: "② 절댓값을 없애고 구간을 나눈 식을 고르세요.",
+              o: ["\\int_{1}^{2}(12-3t^{2})\\,dt+\\int_{2}^{4}(3t^{2}-12)\\,dt", "\\int_{1}^{2}(3t^{2}-12)\\,dt+\\int_{2}^{4}(12-3t^{2})\\,dt", "\\int_{1}^{4}(3t^{2}-12)\\,dt", "\\int_{1}^{4}(12-3t^{2})\\,dt"],
+              w: [null, "부호가 반대입니다. \\(t=1\\)을 넣으면 \\(v(1)=-9<0\\)이므로 앞 구간에 −를 붙입니다.", "구간을 나누지 않았습니다. 이 식은 위치의 변화량입니다.", "식 전체에 −를 붙이기만 했습니다. 속도의 부호가 바뀌는 시각에서 나누어야 합니다."],
+              tg: [null, "sign", "split", "split"],
+              h: "속도가 음수인 구간(1 < t < 2)에서는 식 앞에 −를 붙입니다.", ask: "\\(t=1\\)과 \\(t=3\\)을 넣어 속도의 부호를 각각 확인해 보세요." },
+            { t: "nums", p: "③ 나눈 두 정적분의 값을 각각 구하세요.",
+              f: [["\\int_{1}^{2}(12-3t^{2})\\,dt", "5", traps("5", [["-5", "sign", "앞에 −를 붙인 식이므로 값은 양수가 되어야 합니다."]])], ["\\int_{2}^{4}(3t^{2}-12)\\,dt", "32"]],
+              h: "\\(F(t)=t^{3}-12t\\)이면 \\(F(1)=-11\\), \\(F(2)=-16\\), \\(F(4)=16\\)입니다.", ask: ASK_SUB },
+            { t: "nums", p: "④ 움직인 거리를 구하세요.",
+              f: [["\\int_{1}^{4}|v(t)|\\,dt", "37", traps("37", [["27", "split", "구간을 나누지 않고 계산했습니다. 그것은 위치의 변화량입니다."]])]],
+              h: "③의 두 값을 더합니다.", ask: "③의 두 값을 더했나요?" }
+          ] }
+      ] },
+    { key: "B", name: "보너스", topic: "더 해 보기", bonus: true, tip: "속도의 부호를 먼저 확인하고, 필요하면 구간을 나눈다",
+      ex: "v(t)\\ge0\\ \\Rightarrow\\ \\int_{a}^{b}|v(t)|\\,dt=\\int_{a}^{b}v(t)\\,dt",
+      tiers: [{ label: "보너스 문제", ids: ["B1", "B2"] }],
+      probs: [
+        { id: "B1", pts: 30, road: "주행 로봇", short: "v=t⁴−4t³+4t²",
+          text: "시각 " + m("t") + "에서의 속도가 " + m("v(t)=t^{4}-4t^{3}+4t^{2}") + " (m/s)인 주행 로봇이 직선 경로를 움직입니다. 시각 " + m("t=0") + "에서 출발하여 속도가 다시 " + m("0\\text{ m/s}") + "가 될 때까지 움직인 거리를 구하시오. <small>(교과서 문제 4)</small>",
+          fig: { poly: [0, 0, 4, -4, 1], t1: 2 },
+          steps: [
+            { t: "choice", p: "① \\(v(t)\\)를 인수분해한 것을 고르세요.", o: ["t^{2}(t-2)^{2}", "t(t-2)^{3}", "t^{2}(t+2)^{2}", "(t^{2}-2)^{2}"],
+              w: [null, "전개하면 \\(t^{4}-6t^{3}+\\cdots\\)이 되어 다릅니다.", "부호를 확인하세요. 전개하면 \\(+4t^{3}\\)이 됩니다.", "전개하면 \\(t^{4}-4t^{2}+4\\)가 되어 다릅니다."], tg: [null, "calc", "calc", "calc"],
+              h: "\\(t^{2}\\)으로 묶으면 \\(t^{2}(t^{2}-4t+4)\\)", ask: "공통인 \\(t^{2}\\)부터 묶어 보세요." },
+            { t: "nums", p: "② 출발한 뒤 속도가 다시 0이 되는 시각을 구하세요.", f: [["t", "2"]], h: "\\(t^{2}(t-2)^{2}=0\\)에서 \\(t=0\\) 또는 \\(t=2\\)", ask: "①의 식이 0이 되는 \\(t\\)는?" },
+            { t: "choice", p: "③ \\(0\\le t\\le 2\\)에서 \\(|v(t)|\\)에 대해 옳은 것은?",
+              o: ["T:\\(v(t)\\ge0\\)이므로 \\(|v(t)|=v(t)\\)", "T:\\(v(t)\\le0\\)이므로 \\(|v(t)|=-v(t)\\)", "T:\\(t=1\\)에서 구간을 나누어야 한다.", "T:알 수 없다."],
+              w: [null, "\\(t^{2}\\)과 \\((t-2)^{2}\\)은 모두 0 이상입니다.", "속도가 0이 아닌 곳에서는 부호가 바뀌지 않습니다.", "제곱끼리 곱한 식이라 부호를 바로 알 수 있습니다."], tg: [null, "sign", "split", "sign"],
+              h: "제곱은 0 이상입니다.", ask: "\\(t^{2}(t-2)^{2}\\)이 음수가 될 수 있나요?" },
+            { t: "nums", p: "④ 움직인 거리를 구하세요.", f: [["\\int_{0}^{2}v(t)\\,dt", "16/15"]],
+              h: "\\(\\left[\\tfrac{1}{5}t^{5}-t^{4}+\\tfrac{4}{3}t^{3}\\right]_{0}^{2}=\\tfrac{32}{5}-16+\\tfrac{32}{3}\\)", ask: "15로 통분해 보세요." }
+          ] },
+        { id: "B2", pts: 30, road: "돌아오는 점", short: "v=t²−4t+3, 0→3",
+          text: "점 P의 시각 " + m("t") + "에서의 속도가 " + m("v(t)=t^{2}-4t+3") + "일 때, 시각 " + m("t=0") + "에서 " + m("t=3") + "까지의 위치의 변화량과 움직인 거리를 각각 구하시오.",
+          fig: { poly: [3, -4, 1], t1: 3 },
+          steps: [
+            { t: "nums", p: "① \\(0<t<3\\)에서 속도가 0이 되는 시각을 구하세요.", f: [["t", "1", traps("1", [["3", "stop", "\\(t=3\\)은 끝 시각입니다. 0과 3 사이에서 찾으세요."]])]], h: "\\(v(t)=(t-1)(t-3)\\)", ask: "인수분해해 보세요." },
+            { t: "nums", p: "② 두 구간의 넓이(양수)를 각각 구하세요.", f: [["\\int_{0}^{1}v(t)\\,dt", "4/3"], ["\\int_{1}^{3}|v(t)|\\,dt", "4/3", traps("4/3", [["-4/3", "sign", "절댓값을 씌웠으므로 양수입니다."]])]],
+              h: "\\(F(t)=\\tfrac{1}{3}t^{3}-2t^{2}+3t\\)이면 \\(F(0)=0\\), \\(F(1)=\\tfrac{4}{3}\\), \\(F(3)=0\\)", ask: ASK_SUB },
+            { t: "nums", p: "③ 위치의 변화량과 움직인 거리를 쓰세요.", f: [["\\text{위치의 변화량}", "0", traps("0", [["8/3", "sign", "위치의 변화량에서는 뒤로 간 만큼을 뺍니다."]])], ["\\text{움직인 거리}", "8/3", traps("8/3", [["0", "sign", "움직인 거리에서는 뒤로 간 것도 더합니다."]])]],
+              h: "위치의 변화량 = 위쪽 − 아래쪽, 움직인 거리 = 위쪽 + 아래쪽", ask: "두 양의 차이를 떠올려 보세요." }
+          ] }
+      ] }
+  ];
+
+  /* ───────── 개념 설명(단계마다 문제 전에 넘겨 본다) ─────────
+     w = 움직임 그림: pc(구간별 상수 속도 [[시작, 끝, 속도]…]) 또는 poly(속도 다항식 계수), t1(끝 시각), x0(처음 위치),
+         tu/xu(단위), marks([[위치, 이름]…]), show(보여 줄 값: x 위치, d 위치의 변화량, s 움직인 거리) */
+  var KEY = function (a, b) { return '<span class="kw ' + a + '">' + b + "</span>"; };
+  var DX = KEY("dx", "위치의 변화량"), DS = KEY("ds", "움직인 거리");
+  window.LEARN = {
+    M: [
+      { h: "편의점에 다녀왔다", body: "<p>하늘이가 집에서 출발해 300 m 떨어진 편의점까지 걸어갔습니다. 그런데 지갑을 두고 와서 다시 집으로 돌아왔어요.</p><p>▶ 버튼을 눌러 하늘이가 움직이는 모습을 보세요. 아래 숫자 두 개가 어떻게 달라지는지 잘 보세요.</p>",
+        w: { pc: [[0, 3, 100], [3, 6, -100]], t1: 6, x0: 0, tu: "분", xu: "m", vu: "m/분", marks: [[0, "집"], [300, "편의점"]], show: ["x", "d", "s"] } },
+      { h: "두 가지 질문, 두 가지 답", body: "<table class=\"cmp\"><tr><th>" + DX + "</th><td>처음 위치에서 나중 위치까지 <b>얼마나 달라졌나?</b><br>= (나중 위치) − (처음 위치)<br>하늘이: 0 − 0 = <b>0 m</b></td></tr>" +
+        "<tr><th>" + DS + "</th><td>실제로 <b>얼마나 걸었나?</b><br>= 간 길 + 돌아온 길<br>하늘이: 300 + 300 = <b>600 m</b></td></tr></table>" +
+        "<p>• " + DX + "는 <b>방향</b>을 생각합니다. 그래서 음수가 될 수도 있어요.<br>• " + DS + "는 방향과 관계없이 <b>모두 더합니다</b>. 그래서 항상 0 이상이에요.</p><p class=\"aside\">자동차 계기판의 ‘주행 거리’는 후진해도 줄어들지 않죠? 그게 움직인 거리입니다.</p>" },
+      { h: "그런데 속도가 계속 변한다면?", body: "<p>하늘이는 일정한 빠르기로 걸었지만, 실제로 버스나 공은 속도가 계속 변합니다.</p><p>속도가 계속 변할 때 " + DX + "와 " + DS + "를 어떻게 구할까요? 바로 <b>정적분</b>을 씁니다. 이것이 오늘 배울 내용입니다.</p><p>먼저 확인 문제 하나를 풀어 봅시다.</p>" }
+    ],
+    R: [
+      { h: "위치를 미분하면 속도", body: "<div class=\"flow\"><span>위치 " + m("x(t)") + "</span><b>미분 →</b><span>속도 " + m("v(t)") + "</span></div>" +
+        "<p>지난 단원에서 배웠죠. 위치를 미분하면 속도가 됩니다. 예를 들어 버스의 위치가 " + m("x(t)=12t-3t^{2}") + "이면 속도는 " + m("v(t)=x'(t)=12-6t") + "입니다.</p>" +
+        "<p>거꾸로 말하면 " + m("x(t)") + "는 " + m("v(t)") + "의 <b>부정적분</b>입니다.</p>" },
+      { h: "정적분은 부정적분의 차이", body: "<p>정적분은 부정적분에 위끝을 넣은 값에서 아래끝을 넣은 값을 뺀 것이었습니다.</p><div class=\"big\">" + D("\\int_{a}^{b}f(t)\\,dt=F(b)-F(a)") + "</div>" +
+        "<p>속도의 부정적분은 위치이므로,</p><div class=\"big\">" + D("\\int_{a}^{b}v(t)\\,dt=x(b)-x(a)") + "</div><p>= (나중 위치) − (처음 위치) = <b>" + DX + "</b></p>" },
+      { h: "정리: 오가는 길", body: "<div class=\"flow\"><span>위치 " + m("x(t)") + "</span><b>미분 →</b><span>속도 " + m("v(t)") + "</span></div><div class=\"flow back\"><span>속도 " + m("v(t)") + "</span><b>정적분 →</b><span>" + DX + " " + m("x(b)-x(a)") + "</span></div>" +
+        "<p>부정적분에 붙는 적분상수 " + m("C") + "는 어떻게 될까요? 문제에서 확인해 봅시다.</p>" }
+    ],
+    P: [
+      { h: "속도가 일정할 때", body: "<p>점이 매초 3 m씩 4초 동안 움직이면 3 × 4 = 12 m 갑니다.</p><p>속도 그래프에서 보면 이 12는 <b>색칠된 직사각형의 넓이</b>입니다. ▶를 눌러 보세요.</p>",
+        w: { pc: [[0, 4, 3]], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] } },
+      { h: "속도가 변해도 넓이!", body: "<p>제동하는 버스의 속도 " + m("v(t)=12-6t") + "를 보세요. 속도가 줄어도 <b>그래프 아래 넓이 = 위치의 변화량</b>입니다.</p><p>넓이는 삼각형: " + m("\\tfrac12\\times2\\times12=12") + ", 정적분으로도 " + m("\\int_{0}^{2}(12-6t)\\,dt=12") + ".</p>",
+        w: { poly: [12, -6], t1: 2, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] } },
+      { h: "속도가 음수이면 뒤로 간다", body: "<p>속도가 <b>음수</b>이면 점은 <b>뒤로(음의 방향으로)</b> 갑니다. 그래프에서는 " + m("t") + "축 <b>아래쪽</b> 넓이가 생기고, 정적분에서는 <b>빼집니다</b>.</p><p>" + DX + " = (위쪽 넓이) − (아래쪽 넓이) = 6 − 2 = 4</p>",
+        w: { pc: [[0, 2, 3], [2, 4, -1]], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d"] } },
+      { h: "정리", body: "<div class=\"big\">" + D("\\int_{a}^{b}v(t)\\,dt=\\text{위치의 변화량}") + "</div><p>출발점이 0이 아니면 처음 위치를 더합니다.</p><div class=\"big\">" + D("(\\text{나중 위치})=(\\text{처음 위치})+\\int_{a}^{b}v(t)\\,dt") + "</div>" }
+    ],
+    S: [
+      { h: "넓이 단원 기억나나요?", body: "<p>‘01 넓이’에서 " + m("x") + "축 아래에 있는 부분의 넓이를 구할 때, 함수에 절댓값을 씌워 <b>양수로</b> 셌습니다.</p><div class=\"big\">" + D("S=\\int_{a}^{b}|f(x)|\\,dx") + "</div><p>움직인 거리도 똑같습니다. 뒤로 간 것도 ‘움직인’ 것이니까 빼지 않고 <b>더합니다</b>.</p>" },
+      { h: "위치의 변화량 vs 움직인 거리", body: "<p>속도 " + m("v(t)=4-2t") + " (0 ≤ t ≤ 4). 2초에 멈추고 방향을 바꿉니다. ▶를 눌러 두 숫자를 비교하세요.</p>",
+        w: { poly: [4, -2], t1: 4, x0: 0, tu: "초", xu: "m", vu: "m/s", show: ["x", "d", "s"] } },
+      { h: "움직인 거리 구하는 3단계", body: "<ol class=\"how3\"><li><b>멈춘 순간 찾기</b>: " + m("v(t)=0") + "이 되는 시각 (방향이 바뀌는 순간)</li><li><b>구간 나누기</b>: 그 시각에서 구간을 나눈다</li><li><b>모두 양수로 더하기</b>: 속도가 음수인 구간은 −를 붙여 양수로</li></ol>" +
+        "<table class=\"cmp\"><tr><th>" + DX + "</th><td>" + D("\\int_{a}^{b}v(t)\\,dt") + "<br>위쪽 넓이 <b>−</b> 아래쪽 넓이</td></tr><tr><th>" + DS + "</th><td>" + D("\\int_{a}^{b}|v(t)|\\,dt") + "<br>위쪽 넓이 <b>+</b> 아래쪽 넓이</td></tr></table>" }
+    ]
+  };
+
+  /* ───────── 단계를 마치면 보여 주는 핵심 정리(full)와 마지막 확인에서 다시 묻는 빈칸(quiz) ─────────
+     blanks[i] = i번째 빈칸에서 정답으로 인정하는 입력 목록(공백·대소문자 무시) */
+  var GA = "\\boxed{\\text{(가)}}", NA = "\\boxed{\\text{(나)}}";
+  window.NOTES = {
+    M: { say: "위치의 변화량은 (나중 위치) − (처음 위치)이고 음수도 될 수 있다. 움직인 거리는 실제로 움직인 길이를 모두 더한 것이고 항상 0 이상이다.",
+      full: ["위치의 변화량 = (나중 위치) \\(\\boxed{-}\\) (처음 위치)", "움직인 거리는 항상 \\(\\boxed{0}\\) 이상이다."],
+      quiz: ["위치의 변화량 = (나중 위치) \\(" + GA + "\\) (처음 위치) &nbsp;(기호를 쓰세요)", "움직인 거리는 항상 \\(" + NA + "\\) 이상이다."],
+      blanks: [["-", "빼기", "마이너스"], ["0", "영"]] },
+    R: { say: "위치를 미분하면 속도이고, 속도를 a부터 b까지 정적분하면 x(b) − x(a)이다.",
+      full: ["위치를 \\(\\boxed{\\text{미분}}\\)하면 속도이다.", D("\\int_{a}^{b}v(t)\\,dt=x(b)-x(\\boxed{a})")],
+      quiz: ["위치를 \\(" + GA + "\\)하면 속도이다.", D("\\int_{a}^{b}v(t)\\,dt=x(b)-x(" + NA + ")")],
+      blanks: [["미분"], ["a"]] },
+    P: { say: "속도를 정적분하면 위치의 변화량이다. 나중 위치는 처음 위치에 위치의 변화량을 더한 것이다.",
+      full: [D("\\int_{a}^{b}v(t)\\,dt") + " = 위치의 \\(\\boxed{\\text{변화량}}\\)", "(나중 위치) = (처음 위치) \\(\\boxed{+}\\) (위치의 변화량)"],
+      quiz: [D("\\int_{a}^{b}v(t)\\,dt") + " = 위치의 \\(" + GA + "\\)", "(나중 위치) = (처음 위치) \\(" + NA + "\\) (위치의 변화량) &nbsp;(기호를 쓰세요)"],
+      blanks: [["변화량"], ["+", "더하기", "플러스"]] },
+    S: { say: "움직인 거리는 속도의 절댓값을 정적분한 것이다. 속도가 0이 되는 시각에서 구간을 나누어 계산한다.",
+      full: ["움직인 거리 = " + D("\\int_{a}^{b}|\\boxed{v(t)}|\\,dt"), "속도가 \\(\\boxed{0}\\)이 되는 시각에서 구간을 나눈다."],
+      quiz: ["움직인 거리 = " + D("\\int_{a}^{b}|\\," + GA + "\\,|\\,dt"), "속도가 \\(" + NA + "\\)이 되는 시각에서 구간을 나눈다."],
+      blanks: [["v(t)", "v", "속도"], ["0", "영"]] }
+  };
+})();
+
+</script>
+<script>
+(function () {
+  var CAMPS = window.CAMPS, NOTES = window.NOTES, LEARN = window.LEARN || {}, MIS = window.MIS || {}, KEY = "velo-motion-v1", MARK = "①②③④⑤⑥";
+  var API_URL = String(window.VELO_API_URL || "").trim();   /* config.js 에 적은 앱스크립트 웹 앱 주소 */
+  var HAS = /^https:\/\/script\.google\.com\/.+\/exec$/.test(API_URL);
+  var app = document.getElementById("app");
+  var BYID = {}, BYKEY = {};
+  CAMPS.forEach(function (c, ci) { BYKEY[c.key] = ci; c.probs.forEach(function (p, pi) { p.camp = ci; p.idx = pi; BYID[p.id] = p; }); });
+  /* 본 과정은 bonus 가 아닌 단계들(마지막이 SUMMIT). 보너스는 본 과정을 마친 뒤 열리는 선택 단계다. */
+  var SUMMIT = -1, BONUSES = [];
+  CAMPS.forEach(function (c, ci) { if (c.bonus) BONUSES.push(ci); else SUMMIT = ci; });
+  var MAIN = SUMMIT + 1;
+  /* 서버 설정의 기본값. limC = 선택형 기회, limN = 입력형 기회, wait = 오답 뒤 제출을 막는 시간(초), vary = 학생마다 다른 숫자 */
+  var DEFAULTS = { limC: 3, limN: 5, wait: 0, vary: true };
+  function withDefaults(o) { var c = {}, k; for (k in DEFAULTS) c[k] = DEFAULTS[k]; for (k in (o || {})) if (o[k] != null && DEFAULTS.hasOwnProperty(k)) c[k] = o[k]; return c; }
+  var CFG = withDefaults();
+
+  function fresh(name) { return { name: name || "", start: 0, end: 0, probs: {}, cele: {}, learn: {}, note: {}, rev: 0, synced: false, outbox: [], view: "intro", cur: null }; }
+  var S = fresh("");
+  try { var sv = JSON.parse(localStorage.getItem(KEY) || "null"); if (sv && sv.probs) S = sv; } catch (e) {}
+  S.view = "intro"; S.cur = null;
+  function norm() {
+    S.cele = S.cele || {}; S.outbox = S.outbox || []; S.rev = S.rev || 0; S.probs = S.probs || {}; S.note = S.note || {}; S.learn = S.learn || {};
+    S.final = S.final || { done: false, ok: {}, tries: {}, vals: {}, miss: 0 };
+  }
+  norm();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  function freshUi() { return { order: null, vals: [], active: 0, ok: [], no: [], fb: null, busy: false, fresh: false, page: 0 }; }
+  var ui = freshUi(), joining = false, joinErr = "", joinForce = "", dirty = false;
+  var exOpen = {};
+  function freshAdm() { return { byBad: false, data: null, err: "", busy: false, open: null, pw: "", sel: {}, msg: "" }; }
+  var adm = freshAdm(), gateFb = {};
+
+  /* ---------- 도우미 ---------- */
+  function parse(s) {
+    var m = /^(-?\d+)(?:\/(\d+))?$/.exec(String(s).trim());
+    if (!m) return null;
+    var d = m[2] ? +m[2] : 1; if (!d) return null;
+    return [+m[1], d];
+  }
+  function same(a, b) { var x = parse(a), y = parse(b); return !!x && !!y && x[0] * y[1] === y[0] * x[1]; }
+  function texNum(s) { var x = parse(s); if (!x) return s; return x[1] === 1 ? String(x[0]) : (x[0] < 0 ? "-" : "") + "\\tfrac{" + Math.abs(x[0]) + "}{" + x[1] + "}"; }
+  /* 학번과 문항 이름표로 판본 번호를 정한다. 같은 학생·같은 문항이면 언제나 같은 값 */
+  function variantOf(sid, id, n) {
+    var s = String(sid) + ":" + id, h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h % n;
+  }
+  function st(id) {
+    var s = S.probs[id] || (S.probs[id] = { step: 0, miss: 0, done: false, score: 0, log: [] });
+    if (s.tries == null) { s.tries = 0; s.wrong = []; s.hint = false; s.fail = false; s.resets = 0; }
+    var p = BYID[id];
+    if (p && p.variants && s.ver == null) s.ver = CFG.vary ? variantOf(S.sid || S.name, id, p.variants.length) : 0;   /* 처음 열 때 정해 두고 바꾸지 않는다 */
+    return s;
+  }
+  /* 문항을 쓰는 모든 곳은 이 함수를 거친다: 그 학생의 판본(숫자)을 입힌 문항 */
+  function view(p, ver) {
+    if (!p || !p.variants) return p;
+    if (ver == null) { var s = S.probs[p.id]; ver = s && s.ver != null ? s.ver : 0; }
+    var v = p.variants[Math.min(ver, p.variants.length - 1)], o = {}, k;
+    for (k in p) o[k] = p[k];
+    for (k in v) o[k] = v[k];
+    o.ver = ver; return o;
+  }
+  function isDone(p) { return !!(S.probs[p.id] && S.probs[p.id].done); }
+  /* 단계의 문제 묶음. 순서대로 열리고, 묶음마다 하나씩 풀면 단계를 통과한다. */
+  function stages(c) { return c.tiers.map(function (t) { return { label: t.label, list: t.ids.map(function (id) { return BYID[id]; }) }; }); }
+  function stageDone(sg) { return sg.list.some(isDone); }
+  function stageOpen(c, k) { return k === 0 || stageDone(stages(c)[k - 1]); }
+  function learned(c) { return !LEARN[c.key] || !!S.learn[c.key]; }
+  function stageOf(p) {
+    var sts = stages(CAMPS[p.camp]);
+    for (var k = 0; k < sts.length; k++) if (sts[k].list.indexOf(p) >= 0) return sts[k];
+    return null;
+  }
+  function probOpen(p) {
+    var c = CAMPS[p.camp], sts = stages(c);
+    if (!unlocked(p.camp) || !learned(c)) return false;
+    for (var k = 0; k < sts.length; k++) if (sts[k].list.indexOf(p) >= 0) return stageOpen(c, k);
+    return false;
+  }
+  function probsPassed(ci) { return stages(CAMPS[ci]).every(stageDone); }
+  /* 마지막 단계는 문제에 더해 마지막 확인(핵심 정리 빈칸)까지 통과해야 한다 */
+  function passed(ci) { return probsPassed(ci) && (ci !== SUMMIT || S.final.done); }
+  function progress() { return { c: CAMPS.map(function (_, ci) { return probsPassed(ci) ? 1 : 0; }), f: S.final.done ? 1 : 0 }; }
+  function gateOk() { return CAMPS.slice(0, MAIN).filter(function (c) { return S.final.ok[c.key]; }).length; }
+  function unlocked(ci) { return CAMPS[ci].bonus ? passed(SUMMIT) : ci === 0 || passed(ci - 1); }
+  function total() { var t = 0; Object.keys(S.probs).forEach(function (k) { if (BYID[k] && S.probs[k].done) t += S.probs[k].score; }); return t; }   /* 없어진 문제의 옛 기록은 세지 않는다 */
+  function reached() { var n = 0; while (n <= SUMMIT && passed(n)) n++; return n; }
+  function position() { for (var ci = 0; ci <= SUMMIT; ci++) if (!passed(ci)) return CAMPS[ci].name + " · " + CAMPS[ci].topic; return "모두 완료"; }
+  function lim(step) { return step.t === "nums" ? CFG.limN : CFG.limC; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function M(tex) { return "\\(\\displaystyle " + tex + "\\)"; }
+  function optHtml(o) { return o.indexOf("T:") === 0 ? o.slice(2) : M(o); }
+  function qHtml(p) { return '<div class="q text">' + p.text + "</div>" + (p.fig ? figHtml(p.fig) : ""); }
+  function typeset(el) { if (window.__mjReady && MathJax.typesetPromise) MathJax.typesetPromise([el || app]).catch(function () {}); }
+  window.__typeset = function () { typeset(); };
+  function shuffle(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); for (i = n - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  var calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- 오답 뒤 대기: 설정에서 초를 정하면 틀린 뒤 잠시 제출 버튼을 막는다 ---------- */
+  var lockTimer = 0;
+  function lockLeft() { return Math.max(0, Math.ceil(((S.lockUntil || 0) - Date.now()) / 1000)); }
+  function startLock() { var w = Number(CFG.wait); if (!(w >= 0)) w = 0; S.lockUntil = w > 0 ? Date.now() + w * 1000 : 0; }
+  function applyLock() {
+    clearTimeout(lockTimer);
+    var n = lockLeft();
+    Array.prototype.forEach.call(document.querySelectorAll("[data-lockable]"), function (el) {
+      el.disabled = n > 0 || el.dataset.off === "1";
+      if (el.dataset.label && el.dataset.off !== "1") el.textContent = n > 0 ? n + "초 뒤 가능" : el.dataset.label;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-wait]"), function (el) {
+      el.textContent = n > 0 ? n + "초 뒤에 다시 제출할 수 있습니다. 그동안 아래 안내를 보고 다시 생각해 보세요." : "";
+    });
+    if (n > 0) lockTimer = setTimeout(applyLock, 250);
+  }
+
+  /* ---------- 서버(앱스크립트) ---------- */
+  function call(fn, arg) {
+    return new Promise(function (res, rej) {
+      if (!HAS) return rej(new Error("demo"));
+      /* text/plain 으로 보내야 브라우저가 사전 요청(preflight) 없이 앱스크립트에 전달한다 */
+      fetch(API_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn: fn, arg: arg }), redirect: "follow" })
+        .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(res, rej);
+    });
+  }
+  var sending = false, syncState = "";
+  function setSync(v) { syncState = v; var el = document.querySelector(".sync"); if (el) { el.textContent = syncText(); el.className = "sync" + (v === "bad" ? " bad" : ""); } }
+  function syncText() { return !HAS ? "연결 전 · 이 기기에만 저장" : syncState === "busy" ? "저장 중…" : syncState === "bad" ? "저장 안 됨 · 다시 시도 중" : syncState === "ok" ? "저장됨" : ""; }
+  function summary() {
+    var miss = 0, resets = 0, done = 0;
+    Object.keys(S.probs).forEach(function (k) { var s = S.probs[k]; if (!BYID[k]) return; miss += s.miss; resets += s.resets || 0; if (s.done) done++; });
+    return { pos: position(), stage: reached(), score: total(), done: done, miss: miss, resets: resets, end: S.end || 0 };
+  }
+  function queueSave(entry) {
+    if (entry) { entry.at = Date.now(); S.outbox.push(entry); }
+    S.rev++; dirty = false; save(); pump();
+  }
+  function pump() {
+    if (!HAS || sending || !S.name) return;
+    sending = true; setSync("busy");
+    var logs = S.outbox.slice(), rev = S.rev, copy = JSON.parse(JSON.stringify(S));
+    copy.outbox = []; copy.synced = true; copy.view = "intro"; copy.cur = null; copy.prog = progress();
+    call("apiSave", { name: S.name, rev: rev, synced: !!S.synced, state: JSON.stringify(copy), sum: summary(), logs: logs }).then(function (r) {
+      sending = false;
+      if (r && r.gone) { wiped(); return; }
+      if (!r || !r.ok) throw new Error("save");
+      S.outbox = S.outbox.slice(logs.length); S.synced = true; save(); setSync("ok");
+      if (S.rev !== rev) pump();
+    }).catch(function () { sending = false; setSync("bad"); setTimeout(pump, 6000); });
+  }
+
+  /* 서버에 저장했던 기록이 사라졌다 = 선생님이 지웠다. 이 기기의 기록도 지우고 첫 화면으로 돌아간다. */
+  function wiped() {
+    var sid = S.sid, sname = S.sname;
+    Array.prototype.forEach.call(document.querySelectorAll(".cele, .note, .tour"), function (el) { el.remove(); });
+    S = fresh(""); S.sid = sid; S.sname = sname; norm(); save(); dirty = false; syncState = "";
+    joinErr = "선생님이 학습 기록을 지웠습니다. 다시 입장하면 처음부터 시작합니다.";
+    ui = freshUi(); render(); window.scrollTo(0, 0);
+  }
+
+  /* ---------- 화면 전환 ---------- */
+  function go(view, cur) {
+    if (dirty && view !== "prob") queueSave();
+    stopPlay();
+    S.view = view; S.cur = cur || null; save();
+    ui = freshUi(); render(); window.scrollTo(0, 0);
+    if (view === "map") { var el = app.querySelector(".camp.open"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); checkNote(); maybeTour(); }
+  }
+
+  function bar(back) {
+    return '<div class="bar"><div>' + (back ? '<button class="btn small" data-act="map">← 학습 지도</button>' : '<span class="who">' + esc(S.name) + "</span>") +
+      '</div><div class="right"><span class="sync' + (syncState === "bad" ? " bad" : "") + '">' + syncText() + '</span><span class="total">' + total() + "점</span>" +
+      (S.view !== "record" ? '<button class="btn small" data-act="record">학습 기록</button>' : "") + "</div></div>";
+  }
+
+  /* ====================================================================
+     그림 1: 속도-시간(v–t) 그래프. 위쪽 넓이(앞으로 간 만큼)는 파랑, 아래쪽 넓이(뒤로 간 만큼)는 주황.
+     w = { pc: [[시작, 끝, 속도]…] 또는 poly: [c0, c1, …], t0, t1 }
+     ==================================================================== */
+  function velFn(w) {
+    if (w.pc) return function (t) { for (var i = 0; i < w.pc.length; i++) { var g = w.pc[i]; if (t < g[1] || i === w.pc.length - 1) return g[2]; } return 0; };
+    var c = w.poly; return function (t) { var s = 0; for (var i = c.length - 1; i >= 0; i--) s = s * t + c[i]; return s; };
+  }
+  function niceStep(span) {
+    var raw = span / 4, p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), k = raw / p;
+    return (k < 1.5 ? 1 : k < 3.5 ? 2 : k < 7.5 ? 5 : 10) * p;
+  }
+  function fmt(x) { var r = Math.round(x * 10) / 10; if (Object.is(r, -0) || Math.abs(r) < 1e-9) r = 0; return String(r); }
+  function vtSvg(w, tNow, cursor) {
+    var f = velFn(w), T1 = w.t1, T0 = w.t0 || 0, W = 340, H = 204, L = 40, R = 14, TOP = 24, B = 30, i, t, v;
+    var lo = 0, hi = 0;
+    for (i = 0; i <= 200; i++) { v = f(T1 * i / 200); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    if (hi - lo < 1e-9) hi = 1;
+    var step = niceStep(hi - lo); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    if (lo === 0 && hi > 0) lo = -step * 0.35; if (hi === 0 && lo < 0) hi = step * 0.35;
+    var X = function (t) { return L + (W - L - R) * t / T1; }, Y = function (v) { return TOP + (H - TOP - B) * (hi - v) / (hi - lo); };
+    var h = "", y0 = Y(0);
+    for (v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
+      var yy = Y(v).toFixed(1);
+      h += '<line class="vt-grid" x1="' + L + '" y1="' + yy + '" x2="' + (W - R) + '" y2="' + yy + '"/><text class="vt-tick" x="' + (L - 6) + '" y="' + (+yy + 4) + '" text-anchor="end">' + fmt(v) + "</text>";
+    }
+    var tStep = T1 <= 8 ? 1 : niceStep(T1);
+    for (t = 0; t <= T1 + 1e-9; t += tStep) h += '<line class="vt-grid" x1="' + X(t).toFixed(1) + '" y1="' + TOP + '" x2="' + X(t).toFixed(1) + '" y2="' + (H - B) + '"/><text class="vt-tick" x="' + X(t).toFixed(1) + '" y="' + (H - B + 18) + '" text-anchor="middle">' + fmt(t) + "</text>";
+    /* 색칠: T0 부터 tNow 까지. 끊긴 곳(구간별 상수)은 양쪽 값을 모두 넣는다 */
+    var a = T0, b = Math.min(T1, tNow == null ? T1 : tNow);
+    if (b > a + 1e-9) {
+      var ts = [], n = 160;
+      for (i = 0; i <= n; i++) ts.push(a + (b - a) * i / n);
+      if (w.pc) w.pc.forEach(function (g) { if (g[0] > a && g[0] < b) { ts.push(g[0] - 1e-7); ts.push(g[0]); } });
+      ts.sort(function (p, q) { return p - q; });
+      ["pos", "neg"].forEach(function (kind) {
+        var d = "M" + X(a).toFixed(1) + "," + y0.toFixed(1);
+        ts.forEach(function (tt) { var vv = f(tt); vv = kind === "pos" ? Math.max(0, vv) : Math.min(0, vv); d += " L" + X(tt).toFixed(1) + "," + Y(vv).toFixed(1); });
+        h += '<path class="vt-' + kind + '" d="' + d + " L" + X(b).toFixed(1) + "," + y0.toFixed(1) + 'Z"/>';
+      });
+    }
+    /* 그래프 */
+    var line = "";
+    if (w.pc) w.pc.forEach(function (g, k) {
+      line += (k ? " L" : "M") + X(g[0]).toFixed(1) + "," + Y(g[2]).toFixed(1) + " L" + X(Math.min(g[1], T1)).toFixed(1) + "," + Y(g[2]).toFixed(1);
+    });
+    else for (i = 0; i <= 120; i++) { t = T1 * i / 120; line += (i ? " L" : "M") + X(t).toFixed(1) + "," + Y(f(t)).toFixed(1); }
+    h += '<line class="vt-axis" x1="' + L + '" y1="' + y0.toFixed(1) + '" x2="' + (W - R + 6) + '" y2="' + y0.toFixed(1) + '"/><line class="vt-axis" x1="' + L + '" y1="' + (TOP - 6) + '" x2="' + L + '" y2="' + (H - B) + '"/>' +
+      '<path class="vt-curve" d="' + line + '"/>' +
+      '<text class="vt-lab" x="' + (W - R + 4) + '" y="' + (y0 - 6).toFixed(1) + '" text-anchor="end">t</text><text class="vt-lab" x="' + (L + 6) + '" y="' + (TOP - 10) + '">v</text>';
+    if (cursor && tNow != null) { var cx = X(Math.min(T1, tNow)).toFixed(1); h += '<line class="vt-cursor" x1="' + cx + '" y1="' + TOP + '" x2="' + cx + '" y2="' + (H - B) + '"/><circle class="vt-dot" cx="' + cx + '" cy="' + Y(f(Math.min(T1, tNow))).toFixed(1) + '" r="5"/>'; }
+    return '<svg class="vt" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="속도-시간 그래프. 가로축은 시각 t, 세로축은 속도 v">' + h + "</svg>";
+  }
+
+  /* ====================================================================
+     그림 2: 수직선 위의 움직임. 방향이 바뀔 때마다 화살표를 한 줄 위에 새로 그린다(움직인 거리가 눈에 보이게).
+     legs = [[출발, 도착]…], cur = 지금 위치, marks = [[위치, 이름]…]
+     ==================================================================== */
+  function lineSvg(lo, hi, legs, cur, marks, unit) {
+    var W = 340, L = 22, R = 22, n = legs.length, hasMk = marks && marks.length, H = 64 + 16 * Math.max(1, n) + (hasMk ? 18 : 0), base = H - 30 - (hasMk ? 18 : 0);
+    var X = function (x) { return L + (W - L - R) * (x - lo) / (hi - lo); }, h = "", x;
+    var step = niceStep(hi - lo);
+    for (x = Math.ceil(lo / step) * step; x <= hi + 1e-9; x += step) h += '<line class="nl-tick" x1="' + X(x).toFixed(1) + '" y1="' + (base - 5) + '" x2="' + X(x).toFixed(1) + '" y2="' + (base + 5) + '"/><text class="nl-num" x="' + X(x).toFixed(1) + '" y="' + (base + 20) + '">' + fmt(x) + "</text>";
+    h = '<line class="nl-axis" x1="' + (L - 12) + '" y1="' + base + '" x2="' + (W - R + 14) + '" y2="' + base + '" marker-end="url(#nlArr)"/>' + h;
+    (marks || []).forEach(function (mk) { h += '<text class="nl-mark" x="' + X(mk[0]).toFixed(1) + '" y="' + (base + 38) + '">' + esc(mk[1]) + "</text>"; });
+    legs.forEach(function (g, k) {
+      var y = base - 22 - 16 * k, x1 = X(g[0]), x2 = X(g[1]);
+      if (Math.abs(x2 - x1) < 1) return;
+      h += '<line class="nl-leg c' + (k % 3) + '" x1="' + x1.toFixed(1) + '" y1="' + y + '" x2="' + x2.toFixed(1) + '" y2="' + y + '" marker-end="url(#nlHead' + (k % 3) + ')"/>' +
+        '<line class="nl-drop" x1="' + x1.toFixed(1) + '" y1="' + y + '" x2="' + x1.toFixed(1) + '" y2="' + base + '"/>';
+    });
+    if (cur != null) h += '<circle class="nl-pt" cx="' + X(cur).toFixed(1) + '" cy="' + base + '" r="8"/><text class="nl-p" x="' + X(cur).toFixed(1) + '" y="' + (base + 4) + '">P</text>';
+    var defs = '<defs><marker id="nlArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" class="nl-arrhead"/></marker>' +
+      [0, 1, 2].map(function (k) { return '<marker id="nlHead' + k + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10z" class="nl-head c' + k + '"/></marker>'; }).join("") + "</defs>";
+    return '<svg class="nl" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="수직선 위의 움직임' + (unit ? " (단위 " + unit + ")" : "") + '">' + defs + h + "</svg>";
+  }
+  function figHtml(fig) {
+    if (fig.line) {
+      var pts = fig.line, lo = Math.min.apply(null, pts.concat([0])), hi = Math.max.apply(null, pts);
+      var pad = Math.max(1, Math.round((hi - lo) * 0.12));
+      var legs = []; for (var i = 1; i < pts.length; i++) legs.push([pts[i - 1], pts[i]]);
+      return '<div class="fig">' + lineSvg(lo - pad, hi + pad, legs, null, [[pts[0], "출발"], [pts[pts.length - 1], "도착"]]) + "</div>";
+    }
+    return '<div class="fig">' + vtSvg(fig, null, false) + "</div>";
+  }
+
+  /* ====================================================================
+     움직임 그림(개념 설명용): 재생하면 v–t 그래프의 넓이가 차오르는 것과 수직선 위의 점이 함께 움직인다.
+     ==================================================================== */
+  var MW = null, playRaf = 0;
+  function mwData(w) {
+    var f = velFn(w), N = 600, dt = w.t1 / N, X = [w.x0 || 0], Sd = [0], V = [f(0)], i;
+    for (i = 0; i < N; i++) {
+      var vm = f((i + 0.5) * dt);                    /* 가운데 값으로 적분: 구간별 상수 속도는 정확하다 */
+      X.push(X[i] + vm * dt); Sd.push(Sd[i] + Math.abs(vm) * dt); V.push(vm);
+    }
+    var lo = Math.min.apply(null, X), hi = Math.max.apply(null, X);
+    (w.marks || []).forEach(function (mk) { lo = Math.min(lo, mk[0]); hi = Math.max(hi, mk[0]); });
+    lo = Math.min(lo, 0); var pad = (hi - lo) * 0.1 || 1;
+    return { w: w, N: N, X: X, Sd: Sd, V: V, lo: lo - pad, hi: hi + pad };
+  }
+  function legsUpTo(d, k) {
+    var legs = [], from = d.X[0], dir = 0;
+    for (var i = 1; i <= k; i++) {
+      var s = d.V[i] > 1e-9 ? 1 : d.V[i] < -1e-9 ? -1 : 0;
+      if (s && dir && s !== dir) { legs.push([from, d.X[i - 1]]); from = d.X[i - 1]; }
+      if (s) dir = s;
+    }
+    legs.push([from, d.X[k]]);
+    return legs;
+  }
+  function mwHtml(w) {
+    var stat = { x: ["x", "위치"], d: ["dx", "위치의 변화량"], s: ["ds", "움직인 거리"] };
+    return '<div class="mw"><div class="mw-line"></div><div class="mw-stats">' + (w.show || ["x", "d"]).map(function (k) {
+      return '<div class="mw-st ' + stat[k][0] + '"><small>' + stat[k][1] + '</small><b data-stat="' + k + '">0</b></div>';
+    }).join("") + '</div><div class="mw-graph"></div><div class="mw-ctl"><button class="btn primary small" data-act="play">▶ 재생</button>' +
+      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub><span class="mw-t">t = 0</span></div></div>';
+  }
+  function mwDraw(k) {
+    if (!MW) return; var d = MW.d, el = MW.el, w = d.w; k = Math.max(0, Math.min(d.N, Math.round(k))); MW.k = k;
+    var t = w.t1 * k / d.N, xu = w.xu || "";
+    el.querySelector(".mw-line").innerHTML = lineSvg(d.lo, d.hi, legsUpTo(d, k), d.X[k], w.marks, xu);
+    el.querySelector(".mw-graph").innerHTML = vtSvg(w, t, true);
+    var put = function (key, val, signed) { var b = el.querySelector('[data-stat="' + key + '"]'); if (b) b.textContent = (signed && val > 0.05 ? "+" : "") + fmt(val) + (xu ? " " + xu : ""); };
+    put("x", d.X[k]); put("d", d.X[k] - d.X[0], true); put("s", d.Sd[k]);
+    el.querySelector(".mw-t").textContent = "t = " + fmt(t) + (w.tu ? " " + w.tu : "");
+    var sl = el.querySelector("[data-scrub]"); if (sl && +sl.value !== k) sl.value = k;
+  }
+  function mwBind() {
+    stopPlay(); MW = null;
+    var el = app.querySelector(".mw"); if (!el) return;
+    var pg = (LEARN[S.cur] || [])[ui.page]; if (!pg || !pg.w) return;
+    MW = { el: el, d: mwData(pg.w), k: 0 };
+    mwDraw(ui.mwk || 0);
+  }
+  function stopPlay() { if (playRaf) cancelAnimationFrame(playRaf); playRaf = 0; var b = app.querySelector("[data-act=play]"); if (b) b.textContent = "▶ 재생"; }
+  function play() {
+    if (!MW) return;
+    if (playRaf) { stopPlay(); return; }
+    if (calm) { mwDraw(MW.d.N); return; }
+    var from = MW.k >= MW.d.N ? 0 : MW.k, t0 = 0, DUR = 4200 * (1 - from / MW.d.N) + 300;
+    var b = app.querySelector("[data-act=play]"); if (b) b.textContent = "❚❚ 멈춤";
+    function f(now) {
+      if (!MW || !MW.el.isConnected) { playRaf = 0; return; }
+      if (!t0) t0 = now; var u = Math.min(1, (now - t0) / DUR);
+      mwDraw(from + (MW.d.N - from) * u); ui.mwk = MW.k;
+      if (u < 1) playRaf = requestAnimationFrame(f); else stopPlay();
+    }
+    playRaf = requestAnimationFrame(f);
+  }
+
+  /* ====================================================================
+     테마: 직선 도로(수직선) 위를 달리는 버스. 단계를 통과할 때마다 버스가 다음 정류장으로 가고 그 구간이 색으로 찬다.
+     filled = 색을 채울 구간 수, at = 버스가 선 정류장(0 출발 … MAIN 종점, MAIN+1 보너스), star = 보너스 완료
+     ==================================================================== */
+  var RT = { X0: 36, X1: 316, Y: 118 };
+  var STRIP = ["#0F6B78", "#2A8794", "#4BA2AD", "#7DBFC6"];
+  function stopX(j) { return j > MAIN ? RT.X1 + 34 : RT.X0 + (RT.X1 - RT.X0) * j / MAIN; }
+  function busSvg(x) {
+    return '<g class="rt-bus" id="rtBus" style="transform:translate(' + x + 'px,' + (RT.Y - 13) + 'px)"><rect class="b-body" x="-19" y="-14" width="38" height="20" rx="5"/>' +
+      '<rect class="b-win" x="-14" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="-4" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="6" y="-10" width="9" height="7" rx="1.5"/>' +
+      '<circle class="b-wheel" cx="-10" cy="7" r="4"/><circle class="b-wheel" cx="10" cy="7" r="4"/></g>';
+  }
+  function routeSvg(filled, at, star) {
+    var h = "", j;
+    h += '<line class="rt-road" x1="' + (RT.X0 - 20) + '" y1="' + RT.Y + '" x2="' + (RT.X1 + 52) + '" y2="' + RT.Y + '"/>';
+    for (j = 0; j < MAIN; j++) {
+      var a = stopX(j), b = stopX(j + 1);
+      h += '<rect class="rt-seg' + (j < filled ? " on" : "") + '" data-seg="' + j + '" x="' + a + '" y="' + (RT.Y - 4) + '" width="' + (b - a) + '" height="8" style="--c:' + STRIP[j % STRIP.length] + '"/>' +
+        '<text class="rt-name' + (j < filled ? " on" : "") + '" data-name="' + j + '" x="' + ((a + b) / 2) + '" y="' + (RT.Y + 26) + '">' + CAMPS[j].name + "</text>";
+    }
+    for (j = 0; j <= MAIN; j++) h += '<circle class="rt-stop' + (j <= filled ? " on" : "") + '" cx="' + stopX(j) + '" cy="' + RT.Y + '" r="6"/>';
+    h += '<text class="rt-end" x="' + stopX(0) + '" y="' + (RT.Y + 46) + '">출발</text><text class="rt-end" x="' + stopX(MAIN) + '" y="' + (RT.Y + 46) + '">도착</text>';
+    if (BONUSES.length) h += '<path class="rt-star' + (star ? " on" : "") + '" id="rtStar" d="' + starPath(stopX(MAIN + 1), RT.Y, 9) + '"/>';
+    h += '<path class="rt-hand" d="M' + (RT.X0 + 8) + ',62 C ' + (RT.X0 + 70) + ',22 ' + (RT.X0 + 120) + ',22 ' + (RT.X0 + 170) + ',58 S ' + (RT.X0 + 250) + ',86 ' + (RT.X1 - 4) + ',40"/>' +
+      '<text class="rt-handlab" x="' + (RT.X1 - 2) + '" y="34">v(t)</text>';
+    h += busSvg(stopX(Math.min(at, MAIN + 1)));
+    return '<svg class="rt" viewBox="0 0 380 176" role="img" aria-label="직선 도로 위의 버스. 단계를 통과할 때마다 다음 정류장으로 간다">' + h + "</svg>";
+  }
+  function starPath(x, y, r) {
+    var d = "";
+    for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * .45 : r; d += (i ? "L" : "M") + (x + q * Math.cos(a)).toFixed(1) + "," + (y + q * Math.sin(a)).toFixed(1); }
+    return d + "Z";
+  }
+  function bonusAllDone() { return BONUSES.length > 0 && BONUSES.every(function (bi) { return passed(bi); }); }
+
+  function vIntro() {
+    return '<div class="hero"><div class="hero-top"><p class="kick">정적분의 활용 · 속도와 거리</p><h1 class="long">위치의 변화량과<br><span>움직인 거리</span></h1></div>' +
+      '<div class="hero-art">' + routeSvg(S.start ? reached() : MAIN, S.start ? reached() : 0, S.start && bonusAllDone()) + "</div>" +
+      '<div class="hero-form"><div class="row"><label class="who-f" for="idInput">학번<input id="idInput" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="예: 20101" autocomplete="off" value="' + esc(S.sid || "") + '"' + (joining ? " disabled" : "") + "></label>" +
+      '<label class="who-f grow" for="nameInput">이름<input id="nameInput" maxlength="12" placeholder="예: 김하늘" autocomplete="off" autocapitalize="off" value="' + esc(S.sname || "") + '"' + (joining ? " disabled" : "") + "></label>" +
+      '<button class="btn start" data-act="start"' + (joining ? " disabled" : "") + ">" + (joining ? "불러오는 중…" : joinForce ? "이대로 입장" : S.start ? "이어서 하기" : "시작") + "</button></div>" +
+      '<div class="hero-foot"><p class="err" role="status">' + esc(joinErr) + '</p><button class="link" data-act="admin">관리자 모드</button></div></div></div>';
+  }
+
+  /* ---------- 밝게 비추는 안내 ---------- */
+  var MAP_TOUR = [
+    { sel: function () { return app.querySelector(".camp.open .camp-body"); }, text: "지금 공부할 단계입니다. 단계마다 먼저 ‘개념 배우기’로 설명을 넘겨 보고, 그다음 문제를 풉니다." },
+    { sel: function () { return app.querySelector(".camp.open .learn-btn"); }, text: "여기를 눌러 시작하세요. 설명 화면의 움직이는 그림은 ▶ 버튼으로 재생하고, 막대를 밀어 시각을 바꿀 수 있습니다." },
+    { sel: function () { return app.querySelector(".bar .right"); }, text: function () { return "틀려도 점수는 깎이지 않습니다. 틀리면 어떤 착각인지 안내가 나오고, 힌트는 버튼을 눌러야 보입니다. 한 줄에서 기회를 다 쓰면 그 문제를 숫자를 바꿔 다시 풉니다. 내 풀이는 ‘학습 기록’에서 봅니다."; } }
+  ];
+  var PAD_TOUR = [{ sel: function () { return app.querySelector(".pad"); }, text: "값은 이 숫자판으로 입력합니다. 빈칸을 먼저 누르고, 분수는 4/3, 음수는 −4처럼 누른 뒤 ‘확인’을 누르세요." }];
+  function startTour(steps, flag) {
+    if (document.querySelector(".tour")) return;
+    var i = 0, t = document.createElement("div");
+    t.className = "tour"; t.setAttribute("role", "dialog"); t.setAttribute("aria-label", "사용 안내");
+    t.innerHTML = '<div class="tour-ring"></div><div class="tour-box"><b class="n"></b><p></p><div class="btns"><button class="skip" data-tour="skip">건너뛰기</button><span><button class="prev" data-tour="prev">이전</button><button class="next" data-tour="next"></button></span></div></div>';
+    document.body.appendChild(t);
+    var ring = t.querySelector(".tour-ring"), box = t.querySelector(".tour-box");
+    function place() {
+      var el = steps[i].sel(); if (!el) { step(1); return; }
+      var r = el.getBoundingClientRect(), W = window.innerWidth, Hh = window.innerHeight, pad = 6;
+      ring.style.left = (r.left - pad) + "px"; ring.style.top = (r.top - pad) + "px"; ring.style.width = (r.width + 2 * pad) + "px"; ring.style.height = (r.height + 2 * pad) + "px";
+      var bw = Math.min(460, W - 32), bh = box.offsetHeight, left = Math.max(16, Math.min(r.left, W - bw - 16));
+      var top = r.bottom + pad + 14;
+      if (top + bh > Hh - 12) top = r.top - pad - 14 - bh;
+      if (top < 12) top = Hh - bh - 16;
+      box.style.width = bw + "px"; box.style.left = left + "px"; box.style.top = top + "px";
+    }
+    function show() {
+      var el = steps[i].sel(); if (!el) { step(1); return; }
+      t.querySelector(".n").textContent = steps.length > 1 ? (i + 1) + " / " + steps.length : "안내";
+      t.querySelector("p").textContent = typeof steps[i].text === "function" ? steps[i].text() : steps[i].text;
+      t.querySelector(".prev").style.visibility = i ? "visible" : "hidden";
+      t.querySelector(".skip").style.visibility = steps.length > 1 && i < steps.length - 1 ? "visible" : "hidden";
+      t.querySelector(".next").textContent = i === steps.length - 1 ? (steps.length > 1 ? "시작하기" : "알겠습니다") : "다음";
+      if (el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "auto" });
+      place(); setTimeout(place, 60);
+      var nb = t.querySelector(".next"); if (nb.focus) nb.focus({ preventScroll: true });
+    }
+    function done() { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); t.remove(); S[flag] = Date.now(); save(); if (S.view === "map") checkNote(); }
+    function step(dir) { i += dir; if (i < 0) i = 0; if (i >= steps.length) { done(); return; } show(); }
+    t.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-tour]"); if (!b) return;
+      if (b.dataset.tour === "skip") done(); else step(b.dataset.tour === "prev" ? -1 : 1);
+    });
+    window.addEventListener("resize", place); window.addEventListener("scroll", place, true);
+    show();
+  }
+  function maybeTour() {
+    if (document.querySelector(".tour, .cele, .note")) return;
+    if (S.view === "map" && !S.tut) { window.scrollTo(0, 0); startTour(MAP_TOUR, "tut"); }
+    else if (S.view === "prob" && !S.tutPad && app.querySelector(".pad")) startTour(PAD_TOUR, "tutPad");
+  }
+
+  /* ---------- 학습 지도 ---------- */
+  function routeBtn(p, locked) {
+    var s = S.probs[p.id], d = s && s.done, going = s && !d && (s.step > 0 || s.miss > 0);
+    return '<button class="route' + (d ? " done" : going ? " going" : "") + '" data-prob="' + p.id + '"' + (locked ? " disabled" : "") + "><b>" + esc(p.road) + "</b><span>" +
+      (d ? "완료 " + s.score + "점" : going ? "푸는 중 · " + p.pts + "점" : p.pts + "점") + "</span></button>";
+  }
+  function tierHtml(sg, open) {
+    var ok = stageDone(sg);
+    return '<div class="tier"><div class="tier-head">' + sg.label + (ok ? '<span class="ok">✓ 완료</span>' : "<span>" + (!open ? "앞 문제를 풀면 열립니다" : sg.list.length > 1 ? "하나 골라 풀기" : "꼭 풀기") + "</span>") +
+      '</div><div class="routes">' + sg.list.map(function (p) { return routeBtn(p, !open); }).join("") + "</div></div>";
+  }
+  function vMap() {
+    var h = "", cur = -1;
+    CAMPS.forEach(function (c, ci) { if (unlocked(ci) && !passed(ci) && cur < 0) cur = ci; });
+    for (var ci = 0; ci < CAMPS.length; ci++) {
+      var c = CAMPS[ci], open = unlocked(ci), ok = passed(ci), lr = learned(c);
+      var cls = ok ? "passed" : open ? (ci === cur ? "open" : "") : "locked";
+      var status = ok ? "통과" : open ? (c.bonus ? "선택" : ci === SUMMIT && probsPassed(ci) ? "마지막 확인" : lr ? "문제 푸는 중" : "개념 배우기") : "잠김";
+      h += '<div class="camp ' + cls + '"><div class="alt"><div class="peg">' + (ok ? "✓" : c.bonus ? "★" : ci + 1) + '</div></div><div class="camp-body">' +
+        '<div class="camp-head"><span><span class="nm">' + c.name + '</span><span class="tp">' + c.topic + '</span></span><span class="st">' + status + "</span></div>";
+      if (open) {
+        h += '<p class="tip">' + c.tip + "</p>";
+        if (!lr) {
+          h += '<div><button class="btn primary learn-btn" data-learn="' + c.key + '">개념 배우기 (' + LEARN[c.key].length + "장)</button></div>" +
+            '<p class="tip">개념을 먼저 넘겨 보면 문제가 열립니다.</p>';
+        } else {
+          h += '<div class="row-btns"><button class="btn small learn-btn" data-learn="' + c.key + '">개념 다시 보기</button>' +
+            (exOpen[ci] ? "" : '<button class="btn small peek" data-ex="' + ci + '">막히면 예시 보기</button>') + "</div>" +
+            (exOpen[ci] ? '<div class="ex"><b>예시</b>' + M(c.ex) + "</div>" : "") +
+            '<div class="tiers">' + stages(c).map(function (sg, k) { return tierHtml(sg, stageOpen(c, k)); }).join("") + "</div>";
+          if (ci === SUMMIT) {
+            var ready = probsPassed(ci), nOk = gateOk();
+            h += '<div class="tier"><div class="tier-head">마지막 확인' + (S.final.done ? '<span class="ok">✓ 완료</span>' : "<span>" + (ready ? "공책에 적은 핵심 정리를 빈칸에 쓰기" : "위 문제를 모두 풀면 열립니다") + "</span>") + '</div><div class="routes">' +
+              '<button class="route' + (S.final.done ? " done" : ready ? " going" : "") + '" data-act="final"' + (ready ? "" : " disabled") + "><b>핵심 정리 빈칸</b><span>" + (S.final.done ? "통과" : nOk + " / " + MAIN) + "</span></button></div></div>";
+          }
+        }
+      }
+      h += "</div></div>";
+    }
+    var top = passed(SUMMIT) ? '<div class="banner"><b>오늘 학습 완료!</b><button class="btn" data-act="record">학습 기록 보기</button></div>' : "";
+    return bar(false) + top + '<div class="trail">' + h + "</div>";
+  }
+
+  /* ---------- 개념 설명 ---------- */
+  function vLearn() {
+    var c = CAMPS[BYKEY[S.cur]], pages = LEARN[S.cur] || [], k = Math.min(ui.page, pages.length - 1), pg = pages[k], last = k === pages.length - 1;
+    var dots = pages.map(function (_, i) { return '<i class="' + (i === k ? "on" : i < k ? "seen" : "") + '"></i>'; }).join("");
+    return bar(true) + '<div class="card learn"><div class="learn-head"><p class="kicker">' + c.name + " · " + c.topic + '</p><span class="dots" aria-label="' + (k + 1) + " / " + pages.length + '장">' + dots + "</span></div>" +
+      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + (pg.w ? mwHtml(pg.w) : "") +
+      '<div class="learn-nav"><button class="btn" data-act="lprev"' + (k ? "" : " disabled") + '>← 이전</button>' +
+      (last ? '<button class="btn primary" data-act="ldone">' + (learned(c) ? "학습 지도로" : "문제 풀러 가기") + "</button>" : '<button class="btn primary" data-act="lnext">다음 →</button>') + "</div></div>";
+  }
+
+  /* ---------- 문제 화면 ---------- */
+  function logHtml(s, markNew) {
+    return s.log.map(function (l, k) {
+      var body = l.k === "m" ? M(l.v) : l.v;
+      return '<div class="logline' + (markNew && k === s.log.length - 1 ? " new" : "") + '"><i>' + MARK[k] + "</i><div>" + body + "</div></div>";
+    }).join("");
+  }
+  /* 틀렸을 때 답을 알려 주는 대신, 스스로 확인할 방법을 묻는다 */
+  function askOf(p, k) {
+    var step = p.steps[k];
+    if (step.ask) return step.ask;
+    if (step.t === "choice") return "각 선택지를 문제의 그림과 비교해 보세요. 어느 것이 그림과 맞나요?";
+    return "계산을 종이에 한 줄씩 다시 써 보세요. 부호를 확인했나요?";
+  }
+  function nextHtml(p, s) {
+    var c = CAMPS[p.camp], sts = stages(c), k = -1, h = '<div class="done-box"><b>완료 +' + s.score + "점</b>";
+    if (!c.bonus) sts.forEach(function (sg, i) { if (k < 0 && !stageDone(sg)) k = i; });
+    if (k >= 0) {
+      var sg = sts[k];
+      h += "<p>다음은 <b>" + sg.label + "</b>입니다. " + (sg.list.length > 1 ? "풀 문제를 하나 고르세요." : "이 문제를 풀면 " + (p.camp === SUMMIT ? "마지막 확인이 열립니다." : c.name + "를 통과합니다.")) + '</p><div class="routes">' +
+        sg.list.map(function (q) { return routeBtn(q, false); }).join("") + "</div>";
+    } else if (p.camp === SUMMIT && !S.final.done) {
+      h += '<p>문제를 모두 풀었습니다. 이제 마지막 확인에서 단계마다 적어 둔 핵심 정리를 다시 씁니다.</p><div><button class="btn primary" data-act="final">마지막 확인 하기</button></div>';
+    } else h += "<p>" + (c.bonus ? "보너스 문제를 풀었습니다. 남은 문제에도 도전해 보세요." : "이 단계를 통과했습니다.") + "</p>";
+    return h + '<div><button class="btn small" data-act="map">학습 지도 보기</button></div></div>';
+  }
+  function vProb() {
+    var p = view(BYID[S.cur]), s = st(p.id), c = CAMPS[p.camp];
+    var left = '<div class="card"><div class="meta"><span>' + c.name + " · " + c.topic + " · " + esc(p.road) + "</span>" +
+      '<span class="miss">' + (s.miss ? "틀린 횟수 " + s.miss + "회" : "") + "</span></div>" + qHtml(p) +
+      (s.log.length ? '<div class="log"><h3>내 풀이</h3>' + logHtml(s, ui.fresh) + "</div>" : "") + "</div>";
+    var right;
+    if (s.done) {
+      right = nextHtml(p, s);
+    } else if (s.fail) {
+      var fs = p.steps[s.step];
+      right = '<div class="fail-box"><b>기회 ' + lim(fs) + "번을 모두 썼습니다</b><p>괜찮습니다. 아래 내용을 다시 읽고, " + (p.variants && CFG.vary ? "숫자가 바뀐 같은 유형의 문제를" : "이 문제를") + " 처음부터 다시 풀어 보세요. 점수는 깎이지 않습니다.</p>" +
+        '<div class="hintbox"><b>이 단계의 핵심</b><p>' + c.tip + "</p><p>" + M(c.ex) + "</p><p><b class=\"hl\">막힌 줄의 힌트</b>" + fs.h + "</p></div>" +
+        '<div class="row"><button class="btn primary" data-act="restart">처음부터 다시 풀기</button><button class="btn" data-learn="' + c.key + '">개념 다시 보기</button></div></div>';
+    } else {
+      var step = p.steps[s.step], L = lim(step), dots = "";
+      for (var di = 0; di < L; di++) dots += '<i class="' + (di < L - s.tries ? "" : "used") + '"></i>';
+      right = '<div class="card now"><div class="now-head"><h3>풀이 ' + (s.step + 1) + " / " + p.steps.length + " 단계</h3>" +
+        '<span class="tries" aria-label="남은 기회 ' + (L - s.tries) + '번">남은 기회 ' + dots + '</span></div><p class="prompt">' + step.p + "</p>";
+      if (step.t === "choice") {
+        if (!ui.order) ui.order = shuffle(step.o.length);
+        right += '<div class="opts">' + ui.order.map(function (i) {
+          var w = s.wrong.indexOf(i) >= 0;
+          return '<button class="opt' + (step.o[i].indexOf("T:") === 0 ? " t" : "") + (w ? " wrong" : "") + '" data-lockable data-opt="' + i + '"' + (w ? ' data-off="1" disabled' : "") + ">" + optHtml(step.o[i]) + "</button>";
+        }).join("") + "</div>";
+      } else {
+        if (step.show) right += '<div class="formula">' + M(step.show.replace(/\((가|나|다)\)/g, "\\boxed{\\text{($1)}}")) + "</div>";
+        right += '<div class="fields' + (step.show ? " few" : "") + '">' + step.f.map(function (f, i) {
+          var cls = ui.ok[i] ? " ok" : ui.no[i] ? " no" : i === ui.active ? " active" : "";
+          return '<button class="field' + cls + '" data-field="' + i + '"><span>' + M(f[0] + " =") + '</span><span class="val">' + esc(ui.vals[i] || "") + "</span></button>";
+        }).join("") + "</div>" +
+          '<div class="pad">' + ["7", "8", "9", "⌫", "4", "5", "6", "-", "1", "2", "3", "/"].map(function (k) {
+            return '<button class="key" data-key="' + k + '" aria-label="' + (k === "⌫" ? "지우기" : k === "-" ? "음수 부호" : k === "/" ? "분수 기호" : k) + '">' + (k === "-" ? "−" : k) + "</button>";
+          }).join("") + '<button class="key" data-key="0">0</button><button class="key go" data-key="go" data-lockable data-label="확인">확인</button></div>' +
+          '<p class="hint">분수는 4/3, 음수는 −4처럼 입력합니다.</p>';
+      }
+      right += '<p class="fb ' + (ui.fb ? ui.fb[0] : "") + '" role="status">' + (ui.fb ? ui.fb[1] : "") + '</p><p class="wait" data-wait role="status"></p>';
+      if (s.hint) right += '<div class="hintbox"><b>다시 생각해 보기</b>' + (s.why ? '<p><b class="hl">방금 답</b>' + s.why + "</p>" : "") + "<p>" + askOf(p, s.step) + "</p>" +
+        (s.hintOpen ? '<p><b class="hl">힌트</b>' + step.h + "</p>" : '<p><button class="btn small" data-act="hint">그래도 모르겠으면 힌트 보기</button></p>') + "</div>";
+      right += "</div>";
+    }
+    return bar(true) + '<div class="prob">' + left + right + "</div>";
+  }
+
+  function vRecord() {
+    var sm = summary();
+    var h = bar(true) + '<div class="card" style="display:flex;flex-direction:column;gap:14px"><h2>' + esc(S.name) + "의 학습 기록</h2>" +
+      '<div class="sum"><div><small>통과한 단계</small><b>' + sm.stage + " / " + MAIN + "</b></div><div><small>총점</small><b>" + sm.score + "점</b></div>" +
+      "<div><small>푼 문제</small><b>" + sm.done + "개</b></div><div><small>틀린 횟수</small><b>" + sm.miss + "회</b></div></div>";
+    if (!sm.done) h += '<p class="empty">아직 푼 문제가 없습니다. 푼 문제의 풀이가 여기에 한 줄씩 기록됩니다.</p>';
+    CAMPS.forEach(function (c) {
+      c.probs.forEach(function (bp) {
+        var s = S.probs[bp.id]; if (!s || !s.done) return;
+        var p = view(bp);
+        h += '<div class="rec"><div class="rec-head">' + c.name + " · " + c.topic + " · " + esc(p.road) + "<span>" + s.score + "점 · 틀린 횟수 " + s.miss + "회" + (s.hints ? " · 힌트 " + s.hints + "회" : "") +
+          (s.resets ? " · 다시 풀기 " + s.resets + "회" : "") + "</span></div>" + '<div class="q text">' + p.text + "</div>" + logHtml(s) + "</div>";
+      });
+    });
+    return h + "</div>";
+  }
+
+  /* ---------- 마지막 확인: 핵심 정리 빈칸 ---------- */
+  var BL = ["(가)", "(나)"];
+  function vFinal() {
+    var f = S.final, h = bar(true) + '<div class="gate"><div class="card"><h2>마지막 확인</h2><p class="tip" style="margin-top:8px">단계마다 공책에 적어 둔 핵심 정리를 보고 빈칸을 채우세요. 모두 맞히면 오늘 학습이 끝납니다.</p></div>';
+    for (var ci = 0; ci < MAIN; ci++) {
+      var c = CAMPS[ci], n = NOTES[c.key], ok = !!f.ok[c.key], fb = gateFb[c.key], tr = f.tries[c.key] || 0, dots = "";
+      for (var di = 0; di < CFG.limN; di++) dots += '<i class="' + (di < CFG.limN - tr ? "" : "used") + '"></i>';
+      h += '<div class="card gate-item' + (ok ? " ok" : "") + '"><div class="gate-head"><span>' + c.name + " · " + c.topic + "</span>" +
+        (ok ? '<span class="ok">✓ 통과</span>' : '<span class="tries">남은 기회 ' + dots + "</span>") + '</div><div class="formula">' +
+        (ok ? n.full : n.quiz).map(function (l) { return "<div>" + l + "</div>"; }).join("") + "</div>";
+      if (!ok) {
+        h += '<div class="blanks">' + n.blanks.map(function (_, i) {
+          var v = (f.vals[c.key] || [])[i] || "";
+          return '<label for="bl' + c.key + i + '">' + BL[i] + '<input id="bl' + c.key + i + '" data-blank="' + c.key + ":" + i + '" maxlength="6" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="' + esc(v) + '"' +
+            (fb && fb.bad && fb.bad[i] ? ' class="no"' : "") + "></label>";
+        }).join("") + '<button class="btn primary" data-gate="' + c.key + '" data-lockable data-label="확인">확인</button></div>' +
+          '<p class="fb no" role="status">' + (fb ? fb.msg : "") + '</p><p class="wait" data-wait role="status"></p>';
+      }
+      h += "</div>";
+    }
+    return h + "</div>";
+  }
+  function normBlank(v) { return String(v || "").trim().toLowerCase().replace(/[−–—ㅡ]/g, "-").replace(/＋/g, "+").replace(/\s/g, ""); }
+  function checkGate(key) {
+    if (lockLeft()) return;
+    var f = S.final, n = NOTES[key], vals = f.vals[key] || [], bad = [], anyBad = false, empty = false;
+    n.blanks.forEach(function (acc, i) { var v = normBlank(vals[i]); if (!v) empty = true; bad[i] = acc.indexOf(v) < 0; if (bad[i]) anyBad = true; });
+    if (empty) { gateFb[key] = { msg: "빈칸을 모두 채운 뒤 확인을 누르세요.", bad: [] }; render(); return; }
+    if (!anyBad) {
+      f.ok[key] = true; delete gateFb[key]; dirty = true;
+      if (gateOk() >= MAIN) {
+        f.done = true; if (!S.end) S.end = Date.now();
+        queueSave({ camp: "마지막 확인", id: "핵심 정리", ver: "", result: "통과", score: 0, miss: f.miss, work: "" });
+        render(); setTimeout(function () { celebrate(SUMMIT); }, calm ? 0 : 400); return;
+      }
+      save(); render(); return;
+    }
+    f.miss++; f.tries[key] = (f.tries[key] || 0) + 1; dirty = true; startLock();
+    f.msk = f.msk || {}; f.msk[key] = (f.msk[key] || 0) + 1;
+    if (f.tries[key] >= CFG.limN) {
+      f.tries[key] = 0; f.vals[key] = []; delete gateFb[key]; save(); render();
+      showNote(BYKEY[key], true); return;
+    }
+    gateFb[key] = { msg: "틀렸습니다. 공책에서 ‘" + CAMPS[BYKEY[key]].name + "’ 정리를 찾아 다시 써 보세요.", bad: bad };
+    save(); render();
+  }
+
+  /* ---------- 핵심 정리 팝업 ---------- */
+  function checkNote() {
+    if (document.querySelector(".note, .cele")) return;
+    for (var ci = 0; ci <= SUMMIT; ci++) if (probsPassed(ci) && !S.note[ci]) { showNote(ci, false); return; }
+  }
+  function showNote(ci, review) {
+    var old = document.querySelector(".note"); if (old) old.remove();
+    var c = CAMPS[ci], n = NOTES[c.key], d = document.createElement("div");
+    d.className = "note"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", c.name + " 핵심 정리");
+    d.innerHTML = '<div class="note-in"><p class="kicker">' + c.name + " · " + c.topic + "</p><h2>" + (review ? "다시 읽고 적어 두세요" : "핵심 정리") + '</h2><p class="say">' + n.say + "</p>" +
+      '<div class="formula">' + n.full.map(function (l) { return "<div>" + l.replace(/\\boxed\{((?:[^{}]|\{[^{}]*\})*)\}/g, "$1") + "</div>"; }).join("") + "</div>" +
+      '<p class="memo">' + (review ? "기회를 모두 썼습니다. 이 내용을 공책에 적은 뒤 닫고, 이 단계의 빈칸을 처음부터 다시 쓰세요." :
+        "<b>지금 공책에 그대로 적어 두세요.</b> 마지막 확인에서 이 내용을 다시 묻습니다.") + "</p>" +
+      '<label class="chk" for="noteChk"><input type="checkbox" id="noteChk"> 공책에 적었습니다</label>' +
+      '<div><button class="btn primary" id="noteClose" disabled>닫기</button></div></div>';
+    document.body.appendChild(d);
+    var chk = d.querySelector("#noteChk"), btn = d.querySelector("#noteClose");
+    chk.addEventListener("change", function () { btn.disabled = !chk.checked; });
+    btn.addEventListener("click", function () {
+      d.remove();
+      if (!review) { S.note[ci] = Date.now(); dirty = true; save(); checkNote(); maybeTour(); }
+    });
+    typeset(d);
+  }
+
+  /* ====================================================================
+     관리자 모드: 학급별·단계별 통과율, 학생 명단, 오개념 유형, 문항별 오답률
+     ==================================================================== */
+  var STAGES = CAMPS.slice(0, MAIN).map(function (c, ci) { return { name: c.name, sub: c.topic, get: function (s) { return s.c[ci]; } }; })
+    .concat([{ name: "마지막 확인", sub: "핵심 정리 빈칸", get: function (s) { return s.f; } }])
+    .concat(BONUSES.map(function (bi) { return { name: CAMPS[bi].name, sub: CAMPS[bi].topic, get: function (s) { return s.c[bi]; } }; }));
+  function classOf(sid) {
+    sid = String(sid || "").replace(/\D/g, "");
+    if (sid.length >= 5) return { key: sid.slice(0, 3), label: sid.charAt(0) + "학년 " + parseInt(sid.slice(1, 3), 10) + "반" };
+    return { key: "zzz", label: "학급 미확인" };
+  }
+  function sampleData() {
+    var out = [], fam = "김이박최정강조윤장임", giv = ["하늘", "바다", "서준", "지우", "도윤", "서연", "민준", "하은", "예준", "수아"], tags = Object.keys(MIS);
+    for (var k = 1; k <= 3; k++) for (var n = 1; n <= 9; n++) {
+      var reach = (n * 7 + k * 3) % (MAIN + 3), c = CAMPS.map(function () { return 0; });
+      for (var i = 0; i < Math.min(reach, MAIN); i++) c[i] = 1;
+      if (reach >= MAIN + 2) c[BONUSES[0]] = 1;
+      var fin = reach >= MAIN + 1, it = {}, g = {};
+      CAMPS.forEach(function (cp, ci) {
+        if (cp.bonus || ci > Math.min(reach, SUMMIT)) return;
+        cp.probs.forEach(function (q, qi) {
+          if ((qi + n) % 2) return;
+          var m = (n * (qi + 2) + k + ci * 3) % 4, ms = [], wo = {}, tg = {}, steps = view(q, 0).steps;
+          if (m) {
+            var sk = (n + ci) % steps.length; ms[sk] = m;
+            if (steps[sk].t === "choice") wo[sk + ":" + (1 + (n + ci) % 3)] = m;
+            tg[tags[(n + qi + ci * 2) % 6]] = m;
+          }
+          it[q.id] = [ci < reach ? 1 : 0, m, ms, wo, tg];
+        });
+        if (fin) g[cp.key] = [1, (n + ci) % 3];
+      });
+      out.push({ sid: "2" + ("0" + k).slice(-2) + ("0" + n).slice(-2), name: fam.charAt((n + k) % 10) + giv[(n * k) % 10], c: c, f: fin ? 1 : 0, score: reach * 30 + n, pos: "", it: it, g: g });
+    }
+    return out;
+  }
+  function vAdmin() {
+    var h = '<div class="bar"><button class="btn small" data-act="adminExit">← 첫 화면</button></div><div class="card admin"><h2>관리자 모드</h2>';
+    if (!adm.data) {
+      return h + '<p class="note-line">' + (HAS ? "‘설정’ 시트의 관리자 비밀번호를 입력하세요." : "아직 서버 주소(config.js)가 설정되지 않았습니다. 아무 비밀번호나 넣으면 예시 데이터가 나옵니다.") + "</p>" +
+        '<div class="row"><input type="password" id="adminPw" autocomplete="off" placeholder="비밀번호"' + (adm.busy ? " disabled" : "") + ">" +
+        '<button class="btn primary" data-act="adminLogin"' + (adm.busy ? " disabled" : "") + ">" + (adm.busy ? "확인 중…" : "들어가기") + "</button></div>" +
+        '<p class="err" role="status">' + esc(adm.err) + "</p></div>";
+    }
+    var groups = {}, keys = [];
+    adm.data.forEach(function (s) { var g = classOf(s.sid); if (!groups[g.key]) { groups[g.key] = { label: g.label, list: [] }; keys.push(g.key); } groups[g.key].list.push(s); });
+    keys.sort();
+    function cells(list) {
+      return STAGES.map(function (sg) {
+        var n = list.filter(function (s) { return sg.get(s); }).length, pct = list.length ? Math.round(n * 100 / list.length) : 0;
+        return '<td style="background:color-mix(in srgb, var(--accent) ' + Math.round(pct * 0.5) + '%, transparent)"><b>' + pct + "%</b><small>" + n + " / " + list.length + "</small></td>";
+      }).join("");
+    }
+    h += '<p class="note-line">' + (HAS ? "" : "<b>예시 데이터</b> · ") + "입장한 학생 " + adm.data.length + "명 기준 · 각 칸은 그 단계를 통과한 학생의 비율입니다. 학급 이름을 누르면 그 학급의 명단과 통계만 봅니다.</p>" +
+      '<div class="row"><button class="btn small" data-act="adminRefresh"' + (adm.busy ? " disabled" : "") + ">" + (adm.busy ? "불러오는 중…" : "새로 고침") + '</button><button class="btn small danger" data-act="adminDelAll"' + (adm.busy || !adm.data.length ? " disabled" : "") + '>전체 학생 삭제</button>' +
+      '<span class="err">' + esc(adm.err) + '</span><span class="okmsg" role="status">' + esc(adm.msg) + "</span></div>" +
+      '<div class="tbl-wrap"><table class="rate"><thead><tr><th>학급</th><th>인원</th>' + STAGES.map(function (sg) { return "<th>" + sg.name + "<small>" + sg.sub + "</small></th>"; }).join("") + "</tr></thead><tbody>" +
+      keys.map(function (k) { var g = groups[k]; return '<tr' + (adm.open === k ? ' class="sel"' : "") + '><th><button data-cls="' + k + '">' + g.label + "</button></th><td>" + g.list.length + "</td>" + cells(g.list) + "</tr>"; }).join("") +
+      '<tr class="tot"><th>전체</th><td>' + adm.data.length + "</td>" + cells(adm.data) + "</tr></tbody></table></div>";
+    if (!adm.data.length) h += '<p class="note-line">아직 입장한 학생이 없습니다.</p>';
+    var scoped = adm.open && groups[adm.open] ? groups[adm.open] : null, scopeList = scoped ? scoped.list : adm.data, scopeName = scoped ? scoped.label : "전체";
+    if (scoped) {
+      var list = scoped.list.slice().sort(function (a, b) { return String(a.sid).localeCompare(String(b.sid)); });
+      h += "<h2>" + scoped.label + ' 명단</h2><div class="tbl-wrap"><table class="list"><thead><tr><th>선택</th><th>학번</th><th>이름</th><th>통과한 단계</th><th>총점</th><th>자주 보인 오개념</th></tr></thead><tbody>' +
+        list.map(function (s) {
+          var last = "아직 없음"; STAGES.forEach(function (sg) { if (sg.get(s)) last = sg.name; });
+          var cnt = STAGES.filter(function (sg) { return sg.get(s); }).length, who = s.sid + " " + s.name, tg = tagsOf(s), top = Object.keys(tg).sort(function (a, b) { return tg[b] - tg[a]; }).slice(0, 2);
+          return "<tr><td><input type=\"checkbox\" class=\"pickbox\" id=\"pick" + esc(s.sid) + '" data-sel="' + esc(who) + '" aria-label="' + esc(who) + ' 선택"' + (adm.sel[who] ? " checked" : "") + "></td><td>" + esc(s.sid) + "</td><td>" + esc(s.name) + "</td><td>" + cnt + " / " + STAGES.length + " · " + last + "</td><td>" + (Number(s.score) || 0) + "</td><td>" +
+            (top.length ? top.map(function (t) { return '<span class="tag">' + esc(MIS[t] || t) + " " + tg[t] + "</span>"; }).join(" ") : "—") + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+      var nSel = list.filter(function (s) { return adm.sel[s.sid + " " + s.name]; }).length;
+      h += '<div class="row"><button class="btn small danger" data-act="adminDelSel"' + (nSel && !adm.busy ? "" : " disabled") + ">선택 학생 삭제" + (nSel ? " (" + nSel + "명)" : "") + '</button><span class="note-line">삭제하면 그 학생의 학습기록과 풀이기록이 시트에서 지워지고, 다음에 입장할 때 처음부터 시작합니다.</span></div>';
+    }
+    return h + misHtml(scopeList, scopeName) + itemsHtml(scopeList, scopeName) + "</div>";
+  }
+  function tagsOf(s) {
+    var o = {};
+    Object.keys(s.it || {}).forEach(function (id) { var tg = s.it[id][4] || {}; Object.keys(tg).forEach(function (t) { o[t] = (o[t] || 0) + (Number(tg[t]) || 0); }); });
+    return o;
+  }
+  /* 오개념 유형: 학생이 고른 오답·입력한 오답을 미리 정해 둔 착각 유형으로 모은다 */
+  function misHtml(list, scope) {
+    var rows = Object.keys(MIS).map(function (t) {
+      var r = { t: t, n: 0, cnt: 0, items: {} };
+      list.forEach(function (s) {
+        var hit = 0;
+        Object.keys(s.it || {}).forEach(function (id) { var v = (s.it[id][4] || {})[t]; if (v) { hit += v; r.items[id] = (r.items[id] || 0) + v; } });
+        if (hit) { r.n++; r.cnt += hit; }
+      });
+      return r;
+    }).filter(function (r) { return r.n; }).sort(function (a, b) { return b.n - a.n || b.cnt - a.cnt; });
+    var h = "<h2>오개념 유형 <small>" + esc(scope) + "</small></h2>";
+    if (!rows.length) return h + '<p class="note-line">아직 기록된 오개념이 없습니다.</p>';
+    return h + '<p class="note-line">학생이 고르거나 입력한 오답을 착각의 종류별로 모았습니다. ‘학생 수’는 그 착각을 한 번이라도 보인 학생 수입니다. 다음 시간 정리할 때 위쪽부터 다루세요.</p>' +
+      '<div class="tbl-wrap"><table class="list items"><thead><tr><th>오개념</th><th>학생 수</th><th>횟수</th><th>많이 나온 문제</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var pct = list.length ? Math.round(r.n * 100 / list.length) : 0;
+        var top = Object.keys(r.items).sort(function (a, b) { return r.items[b] - r.items[a]; }).slice(0, 3).map(function (id) { var q = BYID[id]; return q ? CAMPS[q.camp].name + " · " + esc(q.road) + " <small>" + r.items[id] + "회</small>" : id; }).join("<br>");
+        return "<tr><th>" + esc(MIS[r.t]) + '</th><td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + r.n + "명</b> <small>" + pct + "%</small></td><td>" + r.cnt + "회</td><td>" + top + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  /* 문항별 오답률: 도전한 학생 가운데 한 번이라도 틀린 학생의 비율. 판본(숫자)은 합쳐서 센다. */
+  function itemStats(list) {
+    var rows = [];
+    CAMPS.forEach(function (c) {
+      c.probs.forEach(function (bp) {
+        var p = view(bp, 0), r = { label: c.name + " · " + bp.road, q: p, n: 0, done: 0, bad: 0, miss: 0, steps: p.steps.map(function () { return 0; }), opts: {} };
+        list.forEach(function (s) {
+          var v = s.it && s.it[p.id]; if (!v) return;
+          r.n++; if (v[0]) r.done++; if (v[1] > 0) r.bad++; r.miss += v[1] || 0;
+          (v[2] || []).forEach(function (m, k) { if (m && k < r.steps.length) r.steps[k] += m; });
+          Object.keys(v[3] || {}).forEach(function (key) { r.opts[key] = (r.opts[key] || 0) + v[3][key]; });
+        });
+        rows.push(r);
+      });
+    });
+    CAMPS.slice(0, MAIN).forEach(function (c) {
+      var r = { label: "마지막 확인 · " + c.name, gate: c.key, n: 0, done: 0, bad: 0, miss: 0, steps: [], opts: {} };
+      list.forEach(function (s) { var v = s.g && s.g[c.key]; if (!v) return; r.n++; if (v[0]) r.done++; if (v[1] > 0) r.bad++; r.miss += v[1] || 0; });
+      rows.push(r);
+    });
+    return rows;
+  }
+  function itemsHtml(list, scope) {
+    var rows = itemStats(list).filter(function (r) { return r.n > 0; });
+    var h = "<h2>문항별 오답률 <small>" + esc(scope) + "</small></h2>";
+    if (!rows.length) return h + '<p class="note-line">아직 문제를 푼 기록이 없습니다.</p>';
+    if (adm.byBad) rows.sort(function (a, b) { return b.bad / b.n - a.bad / a.n || b.miss - a.miss; });
+    return h + '<div class="row"><p class="note-line">오답률은 그 문제에 도전한 학생 가운데 한 번이라도 틀린 학생의 비율입니다. 학생마다 숫자가 다른 문제는 모두 합쳐 셉니다(선택지 내용은 첫 번째 판본 기준).</p>' +
+      '<button class="btn small" data-act="adminSort">' + (adm.byBad ? "학습 순서로 보기" : "오답률 높은 순으로 보기") + "</button></div>" +
+      '<div class="tbl-wrap"><table class="list items"><thead><tr><th>문항</th><th>문제</th><th>도전</th><th>오답률</th><th>평균 오답</th><th>많이 틀린 줄</th><th>가장 많이 고른 오답</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var pct = Math.round(r.bad * 100 / r.n), top = "", maxS = Math.max.apply(null, r.steps.concat([0]));
+        var stepTxt = r.q && r.q.steps.length > 1 ? r.steps.map(function (m, k) { return '<span class="' + (m && m === maxS ? "hot" : "") + '">' + MARK[k] + " " + m + "</span>"; }).join(" ") : "";
+        var best = null; Object.keys(r.opts).forEach(function (key) { if (!best || r.opts[key] > r.opts[best]) best = key; });
+        if (best && r.q) { var kv = best.split(":"), stp = r.q.steps[+kv[0]]; if (stp && stp.o && stp.o[+kv[1]]) top = '<span class="pick">' + MARK[+kv[0]] + " " + optHtml(stp.o[+kv[1]]) + "</span> <small>" + r.opts[best] + "회</small>"; }
+        return "<tr><th>" + esc(r.label) + '</th><td class="qcell">' + (r.q ? esc(r.q.short || "") : "핵심 정리 빈칸") + "</td><td>" + r.n + "명</td>" +
+          '<td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + pct + "%</b> <small>" + r.bad + " / " + r.n + "</small></td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+
+  /* 삭제는 되돌릴 수 없으므로 한 번 더 확인받는다 */
+  function confirmDelete(names, all) {
+    var d = document.createElement("div");
+    d.className = "note"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "삭제 확인");
+    d.innerHTML = '<div class="note-in danger"><p class="kicker">되돌릴 수 없습니다</p><h2>' + (all ? "전체 학생 " + adm.data.length + "명을 삭제할까요?" : "선택한 학생 " + names.length + "명을 삭제할까요?") + "</h2>" +
+      '<p class="say">' + (all ? "모든 학생의 학습기록과 풀이기록이 시트에서 지워집니다." : esc(names.join(", "))) + "</p>" +
+      '<p class="memo">삭제된 학생은 다음에 입장할 때 처음부터 다시 시작합니다.</p>' +
+      '<label class="chk" for="delChk"><input type="checkbox" id="delChk"> 되돌릴 수 없음을 확인했습니다</label>' +
+      '<div class="row"><button class="btn danger solid" id="delGo" disabled>삭제</button><button class="btn" id="delNo">취소</button></div></div>';
+    document.body.appendChild(d);
+    var chk = d.querySelector("#delChk"), btn = d.querySelector("#delGo");
+    chk.addEventListener("change", function () { btn.disabled = !chk.checked; });
+    d.querySelector("#delNo").addEventListener("click", function () { d.remove(); });
+    btn.addEventListener("click", function () { d.remove(); adminDelete(names, all); });
+  }
+  function adminDelete(names, all) {
+    adm.busy = true; adm.err = ""; adm.msg = ""; render();
+    var req;
+    if (HAS) req = call("apiAdminDelete", { pw: adm.pw, all: !!all, who: names });
+    else {                                               /* 서버 연결 전: 예시 데이터에서만 지운다 */
+      var keep = all ? [] : adm.data.filter(function (s) { return names.indexOf(s.sid + " " + s.name) < 0; });
+      req = Promise.resolve({ ok: true, removed: adm.data.length - keep.length, students: keep });
+    }
+    req.then(function (r) {
+      adm.busy = false;
+      if (!r || !r.ok) { adm.err = (r && r.error) || "삭제하지 못했습니다."; render(); return; }
+      adm.data = r.students || []; adm.sel = {};
+      adm.msg = r.removed + "명을 삭제했습니다."; render();
+    }).catch(function () { adm.busy = false; adm.err = "접속하지 못했습니다. 삭제되지 않았을 수 있으니 새로 고침으로 확인하세요."; render(); });
+  }
+  function adminLoad(pw) {
+    adm.busy = true; adm.err = ""; render();
+    var req = HAS ? call("apiAdmin", pw) : Promise.resolve({ ok: true, students: sampleData() });
+    req.then(function (r) {
+      adm.busy = false;
+      if (!r || !r.ok) { adm.err = (r && r.error) || "불러오지 못했습니다."; if (!adm.data) adm.pw = ""; render(); return; }
+      adm.pw = pw; adm.data = r.students || []; adm.sel = {}; adm.msg = ""; render();
+    }).catch(function () { adm.busy = false; adm.err = "접속하지 못했습니다. 인터넷 연결을 확인하세요."; render(); });
+  }
+
+  function render() {
+    var wide = (S.view === "prob" && BYID[S.cur]) || S.view === "admin";
+    app.className = "wrap" + (wide ? " wide" : "");
+    app.classList.toggle("intro-view", S.view === "intro");
+    if (S.view === "learn" && !LEARN[S.cur]) S.view = "map";
+    app.innerHTML = S.view === "admin" ? vAdmin() : S.view === "map" ? vMap() : S.view === "learn" ? vLearn() : S.view === "final" ? vFinal() : S.view === "prob" && BYID[S.cur] ? vProb() : S.view === "record" ? vRecord() : vIntro();
+    if (S.view === "learn") mwBind(); else { stopPlay(); MW = null; }
+    typeset(); applyLock();
+    if (S.view === "prob" && !S.tutPad && app.querySelector(".pad")) setTimeout(maybeTour, 250);
+  }
+
+  /* ---------- 축하 장면 ---------- */
+  function confetti(canvas, amount) {
+    var ctx = canvas.getContext("2d"), dpr = Math.min(window.devicePixelRatio || 1, 2), W, H, t0 = 0, parts = [];
+    function size() { W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    size();
+    var cols = ["#D2541B", "#0F6B78", "#F2B705", "#1B7F4A", "#FFFFFF", "#5CC4D3"];
+    for (var i = 0; i < amount; i++) parts.push({ x: W / 2 + (Math.random() - .5) * W * .5, y: H * .45, vx: (Math.random() - .5) * 13, vy: -6 - Math.random() * 11,
+      s: 6 + Math.random() * 7, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[i % cols.length] });
+    function frame(t) {
+      if (!canvas.isConnected) return;
+      if (!t0) t0 = t; var el = t - t0;
+      ctx.clearRect(0, 0, W, H);
+      parts.forEach(function (p) {
+        p.vy += .32; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.globalAlpha = Math.max(0, 1 - el / 3200);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+      });
+      if (el < 3200) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+  /* kind: "start" 또는 통과한 단계 번호 */
+  function celebrate(kind) {
+    var old = document.querySelector(".cele"); if (old) old.remove();
+    var start = kind === "start", ci = start ? -1 : kind, c = start ? null : CAMPS[ci], bonus = !start && c.bonus;
+    var from = start ? 0 : bonus ? MAIN : ci, to = start ? 0 : bonus ? MAIN + 1 : ci + 1;
+    var title = start ? "출발!" : ci === SUMMIT ? "도착! 오늘 학습 완료" : bonus ? "보너스 완료!" : c.name + " 통과!";
+    var sub = start ? MAIN + "단계를 차례로 지나 도착점까지 가 봅시다. 단계마다 개념을 먼저 보고 문제를 풉니다." :
+      ci === SUMMIT ? "위치의 변화량과 움직인 거리를 모두 배웠습니다." + (BONUSES.length ? " 시간이 남으면 보너스 문제에 도전해 보세요." : "") :
+      bonus ? "교과서 문제까지 해냈습니다. 대단합니다!" : "다음은 ‘" + CAMPS[ci + 1].topic + "’입니다.";
+    var d = document.createElement("div");
+    d.className = "cele"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", title);
+    d.innerHTML = "<canvas></canvas><div class=\"cele-in\">" + routeSvg(start ? 0 : bonus ? MAIN : ci, from, false) +
+      '<p class="kicker">' + esc(S.name) + "</p><h2>" + title + '</h2><p class="altnum">' + (start ? "0" : Math.min(to, MAIN)) + " / " + MAIN + ' 단계</p><p class="sub">' + sub + "</p>" +
+      '<button class="btn primary" data-act="celeClose">' + (start ? "출발" : "계속하기") + "</button></div>";
+    document.body.appendChild(d);
+    d.querySelector("[data-act=celeClose]").addEventListener("click", function () { d.remove(); if (!start) go("map"); else maybeTour(); });
+    setTimeout(function () {
+      var bus = d.querySelector("#rtBus"); if (!bus) return;
+      bus.style.transform = "translate(" + stopX(to) + "px," + (RT.Y - 13) + "px)";
+      if (bonus) { var star = d.querySelector("#rtStar"); setTimeout(function () { if (star) star.setAttribute("class", "rt-star on pop"); }, calm ? 0 : 1100); }
+      else if (to > from) {
+        var seg = d.querySelector('[data-seg="' + (to - 1) + '"]'), nm = d.querySelector('[data-name="' + (to - 1) + '"]');
+        setTimeout(function () { if (seg) seg.setAttribute("class", "rt-seg on"); if (nm) nm.setAttribute("class", "rt-name on"); }, calm ? 0 : 700);
+      }
+      if (!start && !calm) setTimeout(function () { if (d.isConnected) confetti(d.querySelector("canvas"), ci === SUMMIT || bonus ? 220 : 110); }, 900);
+    }, calm ? 0 : 450);
+    var b = d.querySelector(".btn"); if (b && b.focus) b.focus({ preventScroll: true });
+  }
+
+  /* ---------- 채점 ---------- */
+  function plain(v) { return String(v).replace(/\\\(|\\\)|\\displaystyle ?|\\text\{([^}]*)\}|\\tfrac\{([^}]*)\}\{([^}]*)\}/g, function (m0, a, n, dd) { return a != null ? a : n != null ? n + "/" + dd : ""; }); }
+  function workText(s) { return s.log.map(function (l, k) { return MARK[k] + " " + plain(l.v); }).join("\n"); }
+  function advance(p, s, entry) {
+    s.log.push(entry); s.step++; s.tries = 0; s.wrong = []; s.hint = false; s.hintOpen = false; s.why = "";
+    ui = freshUi(); ui.fresh = true; ui.fb = ["ok", "맞았습니다. 다음 줄로 갑니다."]; dirty = true;
+    if (s.step >= p.steps.length) {
+      s.done = true; s.score = p.pts; ui.fb = null;                 /* 감점 없음: 틀린 횟수는 기록만 한다 */
+      var ci = p.camp, ck = "c:" + CAMPS[ci].key, firstPass = probsPassed(ci) && !S.cele[ck];
+      if (firstPass) S.cele[ck] = Date.now();
+      queueSave({ camp: CAMPS[ci].name, id: p.id, ver: p.variants ? s.ver + 1 : "", result: "완료", score: s.score, miss: s.miss, work: workText(s) });
+      render();
+      if (firstPass && ci !== SUMMIT) setTimeout(function () { celebrate(ci); }, calm ? 0 : 500);
+      else if (firstPass) setTimeout(checkNote, calm ? 0 : 500);
+      return;
+    }
+    save(); render();
+  }
+  function tagIt(s, tag) { if (!tag) return; s.tg = s.tg || {}; s.tg[tag] = (s.tg[tag] || 0) + 1; }
+  function missed(msg) {
+    var s = st(S.cur), p = view(BYID[S.cur]);
+    s.miss++; s.tries++; s.hint = true; ui.fb = ["no", msg]; ui.fresh = false; dirty = true; startLock();
+    s.ms = s.ms || []; s.ms[s.step] = (s.ms[s.step] || 0) + 1;                      /* 줄별 오답 수(관리자 통계용) */
+    if (s.tries >= lim(p.steps[s.step])) {
+      s.fail = true;
+      queueSave({ camp: CAMPS[p.camp].name, id: p.id, ver: p.variants ? s.ver + 1 : "", result: "기회 소진", score: 0, miss: s.miss, work: workText(s) });
+    }
+    save(); render();
+    var el = app.querySelector(".now"); if (el) el.classList.add("shake");
+  }
+  /* 기회를 다 쓴 뒤 다시 풀기: 숫자가 다른 판본으로 바꿔 답을 외워 통과하지 않게 한다 */
+  function restart() {
+    var s = st(S.cur), p = BYID[S.cur];
+    s.step = 0; s.log = []; s.tries = 0; s.wrong = []; s.hint = false; s.hintOpen = false; s.fail = false; s.why = ""; s.resets = (s.resets || 0) + 1;
+    if (p.variants && CFG.vary) s.ver = (s.ver + 1) % p.variants.length;
+    ui = freshUi(); dirty = true; save(); render(); window.scrollTo(0, 0);
+  }
+  function pickOpt(i) {
+    if (lockLeft()) return;
+    var p = view(BYID[S.cur]), s = st(p.id), step = p.steps[s.step], o = step.o[0];
+    if (i === 0) advance(p, s, o.indexOf("T:") === 0 ? { k: "t", v: o.slice(2) } : { k: "m", v: o });
+    else {
+      s.wrong.push(i); s.why = (step.w && step.w[i]) || "";
+      s.wo = s.wo || {}; s.wo[s.step + ":" + i] = (s.wo[s.step + ":" + i] || 0) + 1;   /* 선택지별 오답 수 */
+      tagIt(s, step.tg && step.tg[i]);
+      missed("틀렸습니다. 아래 안내를 읽고 다시 골라 보세요.");
+    }
+  }
+  function checkNums() {
+    if (lockLeft()) return;
+    var p = view(BYID[S.cur]), s = st(p.id), step = p.steps[s.step], empty = false, bad = false, why = "";
+    step.f.forEach(function (f, i) { if (!ui.ok[i] && !ui.vals[i]) empty = true; });
+    if (empty) { ui.fb = ["no", "빈칸을 모두 채운 뒤 확인을 누르세요."]; render(); return; }
+    var badFmt = step.f.some(function (f, i) { return !ui.ok[i] && !parse(ui.vals[i]); });
+    if (badFmt) { ui.fb = ["no", "입력 형식을 확인하세요. 예: 4/3, -4"]; render(); return; }   /* 형식이 틀린 입력은 오답으로 세지 않는다 */
+    step.f.forEach(function (f, i) {
+      if (ui.ok[i]) return;
+      if (same(ui.vals[i], f[1])) { ui.ok[i] = true; ui.no[i] = false; return; }
+      ui.no[i] = true; bad = true;
+      var tr = f[2] || {};
+      Object.keys(tr).forEach(function (k) { if (same(ui.vals[i], k) && !why) { why = tr[k][1]; tagIt(s, tr[k][0]); } });
+    });
+    if (bad) {
+      ui.active = ui.no.indexOf(true); s.why = why;
+      missed(why ? "틀렸습니다. 아래 안내를 읽고 빨간 칸을 다시 계산해 보세요." : "틀렸습니다. 빨간 칸을 다시 계산해 보세요."); return;
+    }
+    advance(p, s, { k: "m", v: step.full || step.f.map(function (f) { return f[0] + " = " + texNum(f[1]); }).join(",\\quad ") });
+  }
+  function pressKey(k) {
+    var bp = BYID[S.cur]; if (!bp) return; var s = st(bp.id); if (s.done || s.fail) return;
+    var p = view(bp), step = p.steps[s.step]; if (step.t !== "nums") return;
+    if (k === "go") return checkNums();
+    var i = ui.active;
+    if (ui.ok[i]) { i = -1; step.f.forEach(function (_, j) { if (i < 0 && !ui.ok[j]) i = j; }); if (i < 0) return; ui.active = i; }
+    var v = ui.vals[i] || "";
+    if (ui.no[i]) { ui.no[i] = false; if (k !== "⌫") v = ""; }
+    if (k === "⌫") v = v.slice(0, -1);
+    else if (k === "-") v = v.charAt(0) === "-" ? v.slice(1) : "-" + v;
+    else if (k === "/") { if (v && v !== "-" && v.indexOf("/") < 0) v += "/"; }
+    else if (v.length < 8) v += k;
+    ui.vals[i] = v; ui.fb = null; render();
+  }
+
+  /* ---------- 입장 ---------- */
+  function join() {
+    var sid = document.getElementById("idInput").value.replace(/\D/g, ""), sname = document.getElementById("nameInput").value.replace(/\s+/g, " ").trim();
+    S.sid = sid; S.sname = sname;
+    if (!/^\d{5}$/.test(sid)) { joinErr = "학번 5자리를 숫자로 입력하세요. (예: 2학년 1반 1번 → 20101)"; joinForce = ""; render(); return; }
+    if (sname.length < 2) { joinErr = "이름을 입력하세요."; joinForce = ""; render(); return; }
+    var name = sid + " " + sname, force = joinForce === name;
+    joining = true; joinErr = ""; if (S.name !== name) { S = fresh(name); S.sid = sid; S.sname = sname; } render();
+    var req = HAS ? call("apiJoin", { name: name, force: force }) : Promise.resolve({ ok: true, name: name, demo: true, state: null, cfg: CFG });
+    req.then(function (r) {
+      if (r && r.dup) {                                   /* 같은 학번에 다른 이름의 기록이 있다: 한 번 더 누르면 입장 */
+        joining = false; joinForce = name;
+        joinErr = "이 학번으로 다른 이름의 기록이 이미 있습니다. 학번과 이름을 다시 확인하세요. 맞다면 ‘이대로 입장’을 누르세요.";
+        render(); return;
+      }
+      if (!r || !r.ok) throw new Error("join");
+      joinForce = "";
+      CFG = withDefaults(r.cfg);
+      var server = null; try { server = r.state ? JSON.parse(r.state) : null; } catch (e) {}
+      var local = S, push = false;
+      if (!r.demo) {
+        if (server && (server.rev || 0) >= (local.rev || 0)) S = server;          /* 다른 기기에서 이어 하기 */
+        else if (!server && local.synced) S = fresh(r.name);                      /* 선생님이 기록을 지운 경우 */
+        else push = local.rev > 0;                                                /* 이 기기의 기록이 더 새로움 */
+      }
+      S.name = r.name; S.sid = sid; S.sname = sname; norm(); joining = false;
+      var first = !S.start; if (first) S.start = Date.now();
+      S.view = "map"; save(); ui = freshUi(); render(); window.scrollTo(0, 0);
+      if (first) { queueSave(); celebrate("start"); } else if (push || S.outbox.length) queueSave();
+      else { var el = app.querySelector(".camp.open"); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" }); }
+      if (!first) { checkNote(); maybeTour(); }            /* 밀린 핵심 정리와 아직 못 본 안내를 차례로 */
+    }).catch(function () { joining = false; joinErr = "접속하지 못했습니다. 인터넷 연결을 확인하고 다시 눌러 주세요."; render(); });
+  }
+
+  /* ---------- 입력 ---------- */
+  app.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b || b.disabled) return;
+    var d = b.dataset;
+    if (d.act === "start") join();
+    else if (d.act === "admin") { adm.err = ""; S.view = "admin"; render(); window.scrollTo(0, 0); }
+    else if (d.act === "adminExit") { adm = freshAdm(); S.view = "intro"; render(); }
+    else if (d.act === "adminLogin") { var pw = document.getElementById("adminPw").value; if (!pw) { adm.err = "비밀번호를 입력하세요."; render(); } else adminLoad(pw); }
+    else if (d.act === "adminRefresh") adminLoad(adm.pw);
+    else if (d.act === "adminSort") { adm.byBad = !adm.byBad; render(); }
+    else if (d.act === "adminDelAll") confirmDelete([], true);
+    else if (d.act === "adminDelSel") { var picked = Object.keys(adm.sel).filter(function (k) { return adm.sel[k] && adm.data.some(function (x) { return x.sid + " " + x.name === k; }); }); if (picked.length) confirmDelete(picked, false); }
+    else if (d.cls) { adm.open = adm.open === d.cls ? null : d.cls; adm.sel = {}; adm.msg = ""; render(); }
+    else if (d.learn) { go("learn", d.learn); }
+    else if (d.act === "lnext" || d.act === "lprev") { stopPlay(); ui.page += d.act === "lnext" ? 1 : -1; ui.mwk = 0; render(); window.scrollTo(0, 0); }
+    else if (d.act === "ldone") {
+      var lc = S.cur, firstL = !S.learn[lc];
+      if (firstL) { S.learn[lc] = Date.now(); queueSave({ camp: CAMPS[BYKEY[lc]].name, id: "개념", ver: "", result: "개념 보기 완료", score: 0, miss: 0, work: "" }); }
+      go("map");
+    }
+    else if (d.act === "play") play();
+    else if (d.act === "final") go("final");
+    else if (d.gate) checkGate(d.gate);
+    else if (d.act === "map") go("map");
+    else if (d.act === "record") go("record");
+    else if (d.act === "restart") restart();
+    else if (d.act === "hint") { var hs = st(S.cur); hs.hintOpen = true; hs.hints = (hs.hints || 0) + 1; dirty = true; save(); render(); }
+    else if (d.ex != null) { exOpen[d.ex] = true; render(); }
+    else if (d.prob) {
+      var np = BYID[d.prob]; if (!np || (!probOpen(np) && !isDone(np))) return;
+      st(d.prob); go("prob", d.prob);
+    }
+    else if (d.opt != null) pickOpt(+d.opt);
+    else if (d.field != null) { if (!ui.ok[+d.field]) { ui.active = +d.field; render(); } }
+    else if (d.key) pressKey(d.key);
+  });
+  app.addEventListener("input", function (e) {
+    if (e.target.dataset.scrub != null && MW) { stopPlay(); mwDraw(+e.target.value); ui.mwk = MW.k; return; }
+    var b = e.target.dataset.blank; if (b) { var kv = b.split(":"); (S.final.vals[kv[0]] = S.final.vals[kv[0]] || [])[+kv[1]] = e.target.value; e.target.classList.remove("no"); save(); }
+  });
+  app.addEventListener("change", function (e) {
+    var w = e.target.dataset && e.target.dataset.sel; if (!w) return;
+    adm.sel[w] = e.target.checked; adm.msg = ""; render();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (document.querySelector(".cele, .note, .tour")) return;
+    if (S.view === "admin") { if (e.key === "Enter" && e.target.id === "adminPw") { var lb = app.querySelector("[data-act=adminLogin]"); if (lb) lb.click(); } return; }
+    if (S.view === "final") { if (e.key === "Enter" && e.target.dataset.blank) checkGate(e.target.dataset.blank.split(":")[0]); return; }
+    if (S.view === "intro") { if (e.key === "Enter" && !joining) join(); return; }
+    if (S.view !== "prob" || e.target.tagName === "INPUT") return;
+    if (/^[0-9]$/.test(e.key) || e.key === "-" || e.key === "/") { pressKey(e.key); e.preventDefault(); }
+    else if (e.key === "Backspace") { pressKey("⌫"); e.preventDefault(); }
+    else if (e.key === "Enter" && !e.target.closest("button")) pressKey("go");
+  });
+  window.addEventListener("pagehide", function () { if (dirty) queueSave(); });
+
+  render();
+})();
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>
+</body>
+</html>
