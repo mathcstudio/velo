@@ -561,3 +561,19 @@ mjx-container[jax="SVG"][display="true"] { overflow: visible; }
 .ans-q span { min-width: 0; }
 .mgrp { display: inline; margin-right: 1.1em; }
 .mgrp:last-child { margin-right: 0; }
+
+/* 개념 설명: ① 예측 → ② 재생 → 설명 */
+.step-tag { display: inline-block; margin: 0 0 4px; padding: 2px 12px; border-radius: 999px; font-family: var(--display); font-size: 15px; color: #FFFFFF; background: var(--flag); }
+.mw .step-tag { background: var(--accent); margin-right: 6px; }
+.learn-after .step-tag { background: var(--good); }
+.predict .step-tag { align-self: flex-start; }
+.mw-ctl { order: -1; }
+.mw-guide { flex: 1 1 100%; margin: 0; font-size: 16px; line-height: 1.6; word-break: keep-all; }
+.mw.locked .mw-guide { color: var(--muted); }
+.mw.locked .mw-line, .mw.locked .mw-stats, .mw.locked .mw-graph { opacity: .55; }
+@media (min-width: 900px) { .mw-ctl { grid-column: 1 / -1; grid-row: 1; } .mw-line { grid-row: 2; } .mw-stats { grid-row: 3; } .mw-graph { grid-row: 2 / span 2; } }
+.btn.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 4px 0 var(--press), 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 4px 0 var(--press), 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .btn.pulse { animation: none; outline: 3px solid var(--flag); } }
+.learn-after { border: 2px solid var(--good); border-radius: 24px; padding: 12px 16px; background: var(--good-soft); font-size: 17px; line-height: 1.75; word-break: keep-all; }
+.learn-after p { margin: 4px 0 0; }

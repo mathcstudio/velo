@@ -254,12 +254,12 @@
      legs = [[출발, 도착]…], cur = 지금 위치, marks = [[위치, 이름]…]
      ==================================================================== */
   function lineSvg(lo, hi, legs, cur, marks, unit) {
-    var W = 340, L = 22, R = 22, n = legs.length, hasMk = marks && marks.length, H = 64 + 16 * Math.max(1, n) + (hasMk ? 18 : 0), base = H - 30 - (hasMk ? 18 : 0);
+    var W = 340, L = 22, R = 22, n = legs.length, hasMk = marks && marks.length, H = 64 + 16 * Math.max(1, n) + (hasMk ? 18 : 0) + 6, base = H - 36 - (hasMk ? 18 : 0);
     var X = function (x) { return L + (W - L - R) * (x - lo) / (hi - lo); }, h = "", x;
     var step = niceStep(hi - lo);
-    for (x = Math.ceil(lo / step) * step; x <= hi + 1e-9; x += step) h += '<line class="nl-tick" x1="' + X(x).toFixed(1) + '" y1="' + (base - 5) + '" x2="' + X(x).toFixed(1) + '" y2="' + (base + 5) + '"/><text class="nl-num" x="' + X(x).toFixed(1) + '" y="' + (base + 20) + '">' + fmt(x) + "</text>";
+    for (x = Math.ceil(lo / step) * step; x <= hi + 1e-9; x += step) h += '<line class="nl-tick" x1="' + X(x).toFixed(1) + '" y1="' + (base - 5) + '" x2="' + X(x).toFixed(1) + '" y2="' + (base + 5) + '"/><text class="nl-num" x="' + X(x).toFixed(1) + '" y="' + (base + 26) + '">' + fmt(x) + "</text>";
     h = '<line class="nl-axis" x1="' + (L - 12) + '" y1="' + base + '" x2="' + (W - R + 14) + '" y2="' + base + '" marker-end="url(#nlArr)"/>' + h;
-    (marks || []).forEach(function (mk) { h += '<text class="nl-mark" x="' + X(mk[0]).toFixed(1) + '" y="' + (base + 38) + '">' + esc(mk[1]) + "</text>"; });
+    (marks || []).forEach(function (mk) { h += '<text class="nl-mark" x="' + X(mk[0]).toFixed(1) + '" y="' + (base + 44) + '">' + esc(mk[1]) + "</text>"; });
     legs.forEach(function (g, k) {
       var y = base - 22 - 16 * k, x1 = X(g[0]), x2 = X(g[1]);
       if (Math.abs(x2 - x1) < 1) return;
@@ -307,12 +307,16 @@
     legs.push([from, d.X[k]]);
     return legs;
   }
-  function mwHtml(w, locked) {
+  /* 움직임 그림. 재생 버튼 줄을 맨 위에 두고, 바로 옆에 무엇을 볼지(guide) 적는다.
+     locked = 아직 예측하지 않아 재생을 막음, pulse = 예측했으니 재생 버튼을 눌러 보라고 깜빡임 */
+  function mwHtml(w, locked, guide, pulse) {
     var stat = { x: ["x", "위치"], d: ["dx", "위치의 변화량"], s: ["ds", "움직인 거리"] };
-    return '<div class="mw"><div class="mw-line"></div><div class="mw-stats">' + (w.show || ["x", "d"]).map(function (k) {
-      return '<div class="mw-st ' + stat[k][0] + '"><small>' + stat[k][1] + '</small><b data-stat="' + k + '">0</b></div>';
-    }).join("") + '</div><div class="mw-graph"></div><div class="mw-ctl"><button class="btn primary small" data-act="play"' + (locked ? " disabled" : "") + '>▶ 재생</button>' +
-      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub' + (locked ? " disabled" : "") + '><span class="mw-t">t = 0</span></div></div>';
+    return '<div class="mw' + (locked ? " locked" : "") + '"><div class="mw-ctl">' + (guide ? '<p class="mw-guide">' + guide + "</p>" : "") +
+      '<button class="btn primary small' + (pulse ? " pulse" : "") + '" data-act="play"' + (locked ? " disabled" : "") + ">" + (locked ? "🔒 재생" : "▶ 재생") + "</button>" +
+      '<input type="range" min="0" max="600" step="1" value="0" aria-label="시각" data-scrub' + (locked ? " disabled" : "") + '><span class="mw-t">t = 0</span></div>' +
+      '<div class="mw-line"></div><div class="mw-stats">' + (w.show || ["x", "d"]).map(function (k) {
+        return '<div class="mw-st ' + stat[k][0] + '"><small>' + stat[k][1] + '</small><b data-stat="' + k + '">0</b></div>';
+      }).join("") + '</div><div class="mw-graph"></div></div>';
   }
   function mwDraw(k) {
     if (!MW) return; var d = MW.d, el = MW.el, w = d.w; k = Math.max(0, Math.min(d.N, Math.round(k))); MW.k = k;
@@ -326,8 +330,8 @@
     if (k === d.N) learnEnd();
   }
   function predResult(ask, pred) {
-    return pred === ask.a ? "✓ 예측이 맞았습니다! 왜 그런지 아래 숫자와 그래프로 다시 확인해 보세요." :
-      "내 예측: " + esc(ask.o[pred]) + " → 실제: <b>" + esc(ask.o[ask.a]) + "</b>. 왜 다른지 수직선의 화살표와 그래프의 색칠된 넓이를 비교해 보세요.";
+    return pred === ask.a ? "✓ 예측이 맞았습니다! 아래 설명으로 왜 그런지 확인해 보세요." :
+      "내 예측: " + esc(ask.o[pred]) + " → 실제: <b>" + esc(ask.o[ask.a]) + "</b>. 아래 설명을 읽고, 수직선의 화살표와 그래프의 색칠된 넓이를 다시 비교해 보세요.";
   }
   /* 그림을 끝까지 본 순간: 예측과 실제를 비교해 보여 주고, 다음 장 버튼을 연다(화면 전체를 다시 그리지 않는다) */
   function learnEnd() {
@@ -337,6 +341,9 @@
     var gn = app.querySelector(".gate-note"); if (gn) gn.remove();
     var pr = app.querySelector(".presult"), pred = S.pred[pk];
     if (pr && pg.ask && pred != null) { pr.innerHTML = predResult(pg.ask, pred); pr.className = "presult " + (pred === pg.ask.a ? "ok" : "no"); }
+    var pb = app.querySelector("[data-act=play].pulse"); if (pb) pb.classList.remove("pulse");
+    var af = app.querySelector(".learn-after");
+    if (af && af.hidden) { af.hidden = false; typeset(af); }
   }
   function mwBind() {
     stopPlay(); MW = null;
@@ -345,7 +352,7 @@
     MW = { el: el, d: mwData(pg.w), k: 0 };
     mwDraw(ui.mwk || 0);
   }
-  function stopPlay() { if (playRaf) cancelAnimationFrame(playRaf); playRaf = 0; var b = app.querySelector("[data-act=play]"); if (b) b.textContent = "▶ 재생"; }
+  function stopPlay() { if (playRaf) cancelAnimationFrame(playRaf); playRaf = 0; var b = app.querySelector("[data-act=play]"); if (b) b.textContent = b.disabled ? "🔒 재생" : "▶ 재생"; }
   function play() {
     if (!MW) return;
     if (playRaf) { stopPlay(); return; }
@@ -504,13 +511,18 @@
     var c = CAMPS[BYKEY[S.cur]], pages = LEARN[S.cur] || [], k = Math.min(ui.page, pages.length - 1), pg = pages[k], last = k === pages.length - 1;
     var dots = pages.map(function (_, i) { return '<i class="' + (i === k ? "on" : i < k ? "seen" : "") + '"></i>'; }).join("");
     var pk = S.cur + ":" + k, ask = pg.ask, pred = S.pred[pk], seen = !!S.seen[pk], gate = !!pg.w && !learned(c);
-    var askHtml = ask ? '<div class="predict"><p class="pq">' + ask.q + '</p><div class="popts">' + ask.o.map(function (o, i) {
+    /* ① 먼저 예측하기 → ② ▶ 재생으로 확인하기 → 설명 */
+    var askHtml = ask ? '<div class="predict"><p class="step-tag">① 먼저 예측하기</p><p class="pq">' + ask.q + '</p><div class="popts">' + ask.o.map(function (o, i) {
       return '<button class="popt' + (pred === i ? " on" : "") + '" data-pred="' + i + '"' + (pred != null ? " disabled" : "") + ">" + esc(o) + "</button>";
     }).join("") + '</div><p class="presult' + (seen && pred != null ? (pred === ask.a ? " ok" : " no") : "") + '" role="status">' +
-      (pred == null ? "하나를 고르면 ▶ 재생이 열립니다." : seen ? predResult(ask, pred) : "좋습니다. 이제 ▶를 눌러 확인해 보세요.") + "</p></div>" : "";
+      (pred == null ? "하나를 골라야 아래 ▶ 재생이 열립니다." : seen ? predResult(ask, pred) : "좋습니다! 이제 아래 ② ▶ 재생을 눌러 확인해 보세요.") + "</p></div>" : "";
+    var locked = gate && !!ask && pred == null;
+    var guide = pg.w ? '<span class="step-tag">' + (ask ? "② ▶ 재생으로 확인하기" : "▶ 재생으로 보기") + "</span>" +
+      (locked ? "위 ①에서 예측을 고르면 재생 버튼이 열립니다." : (pg.watch || "▶ 재생을 눌러 움직이는 모습을 보세요.")) : "";
+    var afterHtml = pg.after ? '<div class="learn-after"' + (seen ? "" : " hidden") + '><p class="step-tag">설명</p>' + pg.after + "</div>" : "";
     var lockNext = gate && !seen;
     return bar(true) + '<div class="card learn"><div class="learn-head"><p class="kicker">' + c.name + " · " + c.topic + '</p><span class="dots" aria-label="' + (k + 1) + " / " + pages.length + '장">' + dots + "</span></div>" +
-      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + askHtml + (pg.w ? mwHtml(pg.w, gate && ask && pred == null) : "") +
+      "<h2>" + pg.h + '</h2><div class="learn-body">' + pg.body + "</div>" + askHtml + (pg.w ? mwHtml(pg.w, locked, guide, !!ask && pred != null && !seen) : "") + afterHtml +
       (lockNext ? '<p class="gate-note">그림을 끝까지 보면 다음으로 넘어갈 수 있습니다.</p>' : "") +
       '<div class="learn-nav"><button class="btn" data-act="lprev"' + (k ? "" : " disabled") + '>← 이전</button>' +
       (last ? '<button class="btn primary" data-act="ldone"' + (lockNext ? " disabled" : "") + ">" + (learned(c) ? "학습 지도로" : "문제 풀러 가기") + "</button>" : '<button class="btn primary" data-act="lnext"' + (lockNext ? " disabled" : "") + ">다음 →</button>") + "</div></div>";
@@ -1152,7 +1164,7 @@
       go("map");
     }
     else if (d.act === "play") play();
-    else if (d.pred != null) { var ppk = S.cur + ":" + ui.page; if (S.pred[ppk] == null) { S.pred[ppk] = +d.pred; dirty = true; save(); render(); } }
+    else if (d.pred != null) { var ppk = S.cur + ":" + ui.page; if (S.pred[ppk] == null) { S.pred[ppk] = +d.pred; dirty = true; save(); render(); var mc = app.querySelector(".mw-ctl"); if (mc && mc.scrollIntoView) mc.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" }); } }
     else if (d.act === "final") go("final");
     else if (d.gate) checkGate(d.gate);
     else if (d.act === "map") go("map");
