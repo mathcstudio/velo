@@ -841,7 +841,7 @@
   function ftPct(stu) {
     var ok = 0, n = 0, ft = firstTries(stu);
     Object.keys(ft).forEach(function (id) { ft[id].forEach(function (v) { if (v != null) { n++; ok += v; } }); });
-    return n ? Math.round(ok * 100 / n) + "%" + "<small> (" + ok + "/" + n + ")</small>" : "—";
+    return n ? '<span class="pctx"><b>' + Math.round(ok * 100 / n) + "%</b><small>(" + ok + "/" + n + ")</small></span>" : "—";
   }
   function tagsOf(s) {
     var o = {};
@@ -866,7 +866,7 @@
       rows.map(function (r) {
         var pct = list.length ? Math.round(r.n * 100 / list.length) : 0;
         var top = Object.keys(r.items).sort(function (a, b) { return r.items[b] - r.items[a]; }).slice(0, 3).map(function (id) { var q = BYID[id]; return q ? CAMPS[q.camp].name + " · " + esc(q.road) + " <small>" + r.items[id] + "회</small>" : id; }).join("<br>");
-        return "<tr><th>" + esc(MIS[r.t]) + '</th><td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + r.n + "명</b> <small>" + pct + "%</small></td><td>" + r.cnt + "회</td><td>" + top + "</td></tr>";
+        return "<tr><th>" + esc(MIS[r.t]) + '</th><td><span class="pctx"><span class="meter"><i style="width:' + pct + '%"></i></span><b>' + r.n + "명</b><small>" + pct + "%</small></span></td><td>" + r.cnt + "회</td><td>" + top + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
   /* 문항별 오답률: 도전한 학생 가운데 한 번이라도 틀린 학생의 비율. 판본(숫자)은 합쳐서 센다. */
@@ -895,7 +895,7 @@
   /* 소문제별 첫 시도 정답률. 50% 미만은 빨갛게(찍어서 통과했거나 아직 모르는 학생이 많다) */
   function ftCell(r) {
     if (!r.ft || !r.ft.some(function (x) { return x[1]; })) return "—";
-    return r.ft.map(function (x, k) { if (!x[1]) return ""; var pc = Math.round(x[0] * 100 / x[1]); return '<span class="' + (pc < 50 ? "hot" : "") + '">' + MARK[k] + " " + pc + "%</span>"; }).join(" ");
+    return r.ft.map(function (x, k) { if (!x[1]) return ""; var pc = Math.round(x[0] * 100 / x[1]); return '<span class="ft' + (pc < 50 ? " hot" : "") + '">' + MARK[k] + " " + pc + "%</span>"; }).join("");
   }
   function itemsHtml(list, scope) {
     var rows = itemStats(list).filter(function (r) { return r.n > 0; });
@@ -907,11 +907,11 @@
       '<div class="tbl-wrap"><table class="list items"><thead><tr><th>문항</th><th>문제</th><th>도전</th><th>오답률</th><th>첫 시도 정답률</th><th>평균 오답</th><th>많이 틀린 줄</th><th>가장 많이 고른 오답</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var pct = Math.round(r.bad * 100 / r.n), top = "", maxS = Math.max.apply(null, r.steps.concat([0]));
-        var stepTxt = r.q && r.q.steps.length > 1 ? r.steps.map(function (m, k) { return '<span class="' + (m && m === maxS ? "hot" : "") + '">' + MARK[k] + " " + m + "</span>"; }).join(" ") : "";
+        var stepTxt = r.q && r.q.steps.length > 1 ? r.steps.map(function (m, k) { return '<span class="ft' + (m && m === maxS ? " hot" : "") + '">' + MARK[k] + " " + m + "</span>"; }).join("") : "";
         var best = null; Object.keys(r.opts).forEach(function (key) { if (!best || r.opts[key] > r.opts[best]) best = key; });
         if (best && r.q) { var kv = best.split(":"), stp = r.q.steps[+kv[0]]; if (stp && stp.o && stp.o[+kv[1]]) top = '<span class="pick">' + MARK[+kv[0]] + " " + optHtml(stp.o[+kv[1]]) + "</span> <small>" + r.opts[best] + "회</small>"; }
         return "<tr><th>" + esc(r.label) + '</th><td class="qcell">' + (r.q ? esc(r.q.short || "") : "핵심 정리 빈칸") + "</td><td>" + r.n + "명</td>" +
-          '<td><div class="meter"><i style="width:' + pct + '%"></i></div><b>' + pct + "%</b> <small>" + r.bad + " / " + r.n + "</small></td><td>" + ftCell(r) + "</td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
+          '<td><span class="pctx"><span class="meter"><i style="width:' + pct + '%"></i></span><b>' + pct + "%</b><small>(" + r.bad + "/" + r.n + ")</small></span></td><td>" + ftCell(r) + "</td><td>" + (r.miss / r.n).toFixed(1) + "회</td><td>" + stepTxt + "</td><td>" + top + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
 
