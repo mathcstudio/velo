@@ -581,3 +581,10 @@ mjx-container[jax="SVG"][display="true"] { overflow: visible; }
 /* 수식 칸에는 스크롤바를 만들지 않는다. 긴 수식은 MX()가 줄바꿈하고, 그래도 넓으면 svg가 칸에 맞게 줄어든다.
    (overflow-x: auto 를 두면 소수점 픽셀 반올림만으로도 PC·크롬북에서 수식 옆에 스크롤바가 생길 수 있다) */
 .ex, .q, .logline, .opt, .hintbox, .formula, .learn-body, .learn-body .big, .ans-a, .rec .q, .now .formula, table.items .qcell { overflow: visible; }
+
+/* 관리자 표: 막대·퍼센트·개수를 한 덩어리로(중간에서 줄이 바뀌지 않게) */
+.pctx { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pctx .meter { margin-right: 2px; flex: 0 0 auto; }
+.pctx small { color: var(--muted); font-size: 12px; }
+.ft { display: inline-block; white-space: nowrap; margin-right: 8px; }
+.ft:last-child { margin-right: 0; }
