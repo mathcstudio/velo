@@ -4,29 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>위치의 변화량과 움직인 거리</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <style>
-/* 레이아웃: 한 열짜리 등산로(정상이 위). 문제 화면은 넓은 태블릿(가로)에서 문제·풀이 / 입력 두 열로 나뉜다. */
+/* 테마: 말랑 파스텔. 레이아웃: 한 열짜리 학습 지도. 문제 화면은 넓은 태블릿(가로)에서 문제·풀이 / 입력 두 열로 나뉜다. */
 :root {
-  --paper: #EEF3F4; --contour: #DCE6E8; --ink: #13262B; --muted: #55696F; --surface: #FFFFFF; --line: #BFCED2;
-  --accent: #0F6B78; --on-accent: #FFFFFF; --flag: #D2541B; --good: #1B7F4A; --good-soft: #DDF3E6;
-  --bad: #C0352F; --bad-soft: #FBE3E1; --band: #12262B; --on-band: #EAF2F4; --rock1: #7C959B; --rock2: #4E666C;
-  --display: "Black Han Sans", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --hand: "Nanum Pen Script", "Noto Sans KR", cursive;
+  --paper: #FFF3F8; --contour: #FBE1EC; --ink: #4B3A57; --muted: #8B7898; --surface: #FFFFFF; --line: #F1D2E2;
+    --accent: #7B6AF0; --on-accent: #FFFFFF; --flag: #FF6F9F; --good: #1FA67F; --good-soft: #DDF7EE;
+    --bad: #F0506E; --bad-soft: #FFE6EA; --band: #8B7BF7; --on-band: #FFFFFF; --rock1: #C9B8D6; --rock2: #9C86AE;
+    --dot: #F9CFE0; --puff: #F6DCE8; --press: #5E4ED6; --press2: #E2558A;
+  --display: "Jua", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --body: "Gowun Dodum", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --hand: "Gaegu", "Noto Sans KR", cursive;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0D1A1E; --contour: #15272C; --ink: #E6F0F2; --muted: #98AEB4; --surface: #152429; --line: #2B4148;
-    --accent: #5CC4D3; --on-accent: #0D1A1E; --flag: #F08A4B; --good: #5FD08F; --good-soft: #173626;
-    --bad: #F0827B; --bad-soft: #3B1C1B; --band: #081215; --on-band: #E6F0F2; --rock1: #3D555C; --rock2: #26393F;
+    --paper: #221A2C; --contour: #2E2440; --ink: #F6EAF4; --muted: #BFA9C9; --surface: #2D233D; --line: #4A3A5C;
+    --accent: #A99BFF; --on-accent: #221A2C; --flag: #FF94B8; --good: #4FD8AE; --good-soft: #1E3A33;
+    --bad: #FF8A9A; --bad-soft: #42222E; --band: #3B2F55; --on-band: #F6EAF4; --rock1: #4A3A5C; --rock2: #2E2440;
+    --dot: #33284A; --puff: #17111F; --press: #6F60D8; --press2: #C44A78;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #0D1A1E; --contour: #15272C; --ink: #E6F0F2; --muted: #98AEB4; --surface: #152429; --line: #2B4148;
-  --accent: #5CC4D3; --on-accent: #0D1A1E; --flag: #F08A4B; --good: #5FD08F; --good-soft: #173626;
-  --bad: #F0827B; --bad-soft: #3B1C1B; --band: #081215; --on-band: #E6F0F2; --rock1: #3D555C; --rock2: #26393F;
+  --paper: #221A2C; --contour: #2E2440; --ink: #F6EAF4; --muted: #BFA9C9; --surface: #2D233D; --line: #4A3A5C;
+    --accent: #A99BFF; --on-accent: #221A2C; --flag: #FF94B8; --good: #4FD8AE; --good-soft: #1E3A33;
+    --bad: #FF8A9A; --bad-soft: #42222E; --band: #3B2F55; --on-band: #F6EAF4; --rock1: #4A3A5C; --rock2: #2E2440;
+    --dot: #33284A; --puff: #17111F; --press: #6F60D8; --press2: #C44A78;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -510,6 +513,62 @@ ol.how3 { margin: 0 0 12px; padding-left: 1.4em; } ol.how3 li { margin-bottom: 6
 .presult.no { color: var(--bad); }
 .gate-note { margin: 0; text-align: right; font-size: 14px; font-weight: 700; color: var(--flag); }
 .btn:disabled[data-act=lnext], .btn:disabled[data-act=ldone] { opacity: .45; }
+
+/* ===================== 테마: 말랑 파스텔 =====================
+   분홍·라벤더·민트, 동글동글한 모서리, 아래로 깔린 말랑한 그림자, 얼굴 있는 버스와 점 P */
+body { background-color: var(--paper); background-image: radial-gradient(var(--dot) 1.6px, transparent 1.8px); background-size: 22px 22px; }
+.card, .camp-body, .note-in, .tour-box, .mw, .subq, .predict, .ans, .done-box, .fail-box, .ans-card, .gate-item { border-radius: 24px; }
+.card, .camp-body { border-width: 2px; box-shadow: 0 6px 0 var(--puff); }
+.btn { border-radius: 999px; border-width: 2px; box-shadow: 0 4px 0 var(--puff); }
+.btn.primary { box-shadow: 0 4px 0 var(--press); }
+.btn:active:not(:disabled), .key:active, .key.go:active { transform: translateY(3px); box-shadow: none; }
+.route, .opt, .popt, .field, .key, .mw-st, .blanks input { border-radius: 18px; }
+.key.go { box-shadow: 0 4px 0 var(--press); }
+.route.done { background: var(--good-soft); }
+.peg { width: 38px; height: 38px; font-family: var(--display); font-size: 18px; }
+.camp.open .peg { background: color-mix(in srgb, var(--flag) 14%, var(--surface)); }
+.camp.passed .peg { background: var(--good); border-color: var(--good); color: #FFFFFF; }
+.camp::before, .camp.passed::before { border-left-style: dotted; border-left-width: 4px; }
+.camp.passed::before { border-left-color: var(--good); }
+.hero { background-color: var(--surface); background-image: radial-gradient(var(--dot) 2px, transparent 2.2px); background-size: 26px 26px; }
+.hero-top .kick { color: var(--flag); }
+.hero-top h1 span { color: var(--accent); }
+.hero-top h1::after { content: " ✿"; color: var(--flag); font-size: .55em; vertical-align: super; }
+.hero-form { border-radius: 30px 30px 0 0; }
+.hero-form input { border-radius: 999px; }
+.btn.start { background: var(--flag); border-color: var(--flag); box-shadow: 0 4px 0 var(--press2); border-radius: 999px; }
+.stepper .cur span { box-shadow: 0 0 0 5px color-mix(in srgb, var(--sc) 25%, transparent); }
+.passbar { border-radius: 999px; text-align: center; }
+.passbar::before { content: "✨ "; }
+.done-box > b::before { content: "🎀 "; }
+.banner { border-radius: 24px; }
+.cele { background-color: var(--paper); background-image: radial-gradient(var(--dot) 2px, transparent 2.2px); background-size: 26px 26px; }
+/* 버스와 점 P */
+.rt-bus .b-body { fill: var(--flag); stroke: var(--ink); stroke-width: 1.6; rx: 9px; }
+.b-eye { fill: #4B3A57; } .b-blush { fill: #FF3D82; opacity: .5; } .b-mouth { fill: none; stroke: #4B3A57; stroke-width: 1.2; stroke-linecap: round; }
+.rt-seg { rx: 4px; }
+.rt-stop { fill: var(--surface); stroke: var(--accent); stroke-width: 2.4; } .rt-stop.on { fill: var(--accent); }
+.rt-hand { stroke: var(--flag); opacity: .7; }
+.nl-pt { r: 12px; fill: var(--accent); } .nl-p { display: none; }
+.nl-face circle { fill: #FFFFFF; } .nl-face path { fill: none; stroke: #FFFFFF; stroke-width: 1.4; stroke-linecap: round; }
+.mw-st { background: var(--paper); }
+
+/* ===================== 수식과 입력 칸이 칸에 끼지 않게 =====================
+   1) 수식 조각(.mpc)은 통째로 다음 줄로 넘어간다
+   2) 그래도 칸보다 넓은 수식은 잘리지 않고 칸에 맞게 줄어든다
+   3) 입력 칸은 이름표와 입력한 값이 좁으면 두 줄로 나뉜다 */
+.mpc { display: inline-block; max-width: 100%; margin-right: .3em; vertical-align: middle; }
+mjx-container[jax="SVG"] { max-width: 100%; }
+mjx-container[jax="SVG"] > svg { max-width: 100%; height: auto; }
+mjx-container[jax="SVG"][display="true"] { overflow: visible; }
+.opt, .popt, .logline > div, .ans-a > div, .formula, .hintbox, .learn-body .big, .q { min-width: 0; }
+.field { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 2px; }
+.field > span:first-child { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.field .val { flex: 1 0 auto; margin-left: auto; text-align: right; }
+.fields.few .field { flex: 1 1 150px; }
+.ans-q span { min-width: 0; }
+.mgrp { display: inline; margin-right: 1.1em; }
+.mgrp:last-child { margin-right: 0; }
 </style>
 <script src="config.js"></script>
 </head>
@@ -1036,7 +1095,27 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
   function lim(step) { return step.t === "nums" ? CFG.limN : CFG.limC; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function M(tex) { return "\\(\\displaystyle " + tex + "\\)"; }
-  function optHtml(o) { return o.indexOf("T:") === 0 ? o.slice(2) : M(o); }
+  /* 긴 수식을 조각으로 나눠, 좁은 화면에서는 글처럼 다음 줄로 넘어가게 한다.
+     괄호 밖에 있는 '=' 앞, '+\int' 앞, ',\quad' 에서 나눈다. 조각 하나가 그래도 넓으면 CSS가 칸에 맞게 줄인다. */
+  function splitTex(tex) {
+    var out = [], cur = "", depth = 0, i = 0, s = String(tex);
+    while (i < s.length) {
+      var ch = s.charAt(i);
+      if (ch === "," && s.substr(i, 6) === ",\\quad" && depth === 0) { out.push(cur); cur = ""; i += 6; continue; }
+      if (ch === "{") depth++;
+      if (ch === "}") depth--;
+      if (depth === 0 && cur && (ch === "=" || (ch === "+" && s.substr(i + 1, 4) === "\\int"))) { out.push(cur); cur = ""; }
+      cur += ch; i++;
+    }
+    if (cur) out.push(cur);
+    return out.filter(function (x) { return x.trim(); });
+  }
+  function MX(tex) {
+    return String(tex).split(",\\quad").map(function (g) {
+      return '<span class="mgrp">' + splitTex(g).map(function (t) { return '<span class="mpc">' + M(t) + "</span>"; }).join("") + "</span>";
+    }).join("");
+  }
+  function optHtml(o) { return o.indexOf("T:") === 0 ? o.slice(2) : MX(o); }
   function qHtml(p) { return '<div class="q text">' + p.text + "</div>" + (p.fig ? figHtml(p.fig) : ""); }
   function typeset(el) { if (window.__mjReady && MathJax.typesetPromise) MathJax.typesetPromise([el || app]).catch(function () {}); }
   window.__typeset = function () { typeset(); };
@@ -1191,7 +1270,8 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
       h += '<line class="nl-leg c' + (k % 3) + '" x1="' + x1.toFixed(1) + '" y1="' + y + '" x2="' + x2.toFixed(1) + '" y2="' + y + '" marker-end="url(#nlHead' + (k % 3) + ')"/>' +
         '<line class="nl-drop" x1="' + x1.toFixed(1) + '" y1="' + y + '" x2="' + x1.toFixed(1) + '" y2="' + base + '"/>';
     });
-    if (cur != null) h += '<circle class="nl-pt" cx="' + X(cur).toFixed(1) + '" cy="' + base + '" r="8"/><text class="nl-p" x="' + X(cur).toFixed(1) + '" y="' + (base + 4) + '">P</text>';
+    if (cur != null) h += '<circle class="nl-pt" cx="' + X(cur).toFixed(1) + '" cy="' + base + '" r="8"/><text class="nl-p" x="' + X(cur).toFixed(1) + '" y="' + (base + 4) + '">P</text>' +
+      '<g class="nl-face" transform="translate(' + X(cur).toFixed(1) + "," + base + ')"><circle cx="-3.2" cy="-1.5" r="1.6"/><circle cx="3.2" cy="-1.5" r="1.6"/><path d="M-2.2,2 q2.2,2.2 4.4,0"/></g>';
     var defs = '<defs><marker id="nlArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" class="nl-arrhead"/></marker>' +
       [0, 1, 2].map(function (k) { return '<marker id="nlHead' + k + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10z" class="nl-head c' + k + '"/></marker>'; }).join("") + "</defs>";
     return '<svg class="nl" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="수직선 위의 움직임' + (unit ? " (단위 " + unit + ")" : "") + '">' + defs + h + "</svg>";
@@ -1290,11 +1370,12 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
      filled = 색을 채울 구간 수, at = 버스가 선 정류장(0 출발 … MAIN 종점, MAIN+1 보너스), star = 보너스 완료
      ==================================================================== */
   var RT = { X0: 36, X1: 316, Y: 118 };
-  var STRIP = ["#0F6B78", "#2A8794", "#4BA2AD", "#7DBFC6"];
+  var STRIP = ["#B9AEFF", "#FFB3CE", "#8EE3C8", "#FFD58A"];
   function stopX(j) { return j > MAIN ? RT.X1 + 34 : RT.X0 + (RT.X1 - RT.X0) * j / MAIN; }
   function busSvg(x) {
     return '<g class="rt-bus" id="rtBus" style="transform:translate(' + x + 'px,' + (RT.Y - 13) + 'px)"><rect class="b-body" x="-19" y="-14" width="38" height="20" rx="5"/>' +
-      '<rect class="b-win" x="-14" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="-4" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="6" y="-10" width="9" height="7" rx="1.5"/>' +
+      '<rect class="b-win" x="-14" y="-10" width="8" height="7" rx="1.5"/><rect class="b-win" x="-4" y="-10" width="8" height="7" rx="1.5"/>' +
+      '<ellipse class="b-blush" cx="7" cy="1.5" rx="2.4" ry="1.4"/><circle class="b-eye" cx="10.5" cy="-1.5" r="1.7"/><circle class="b-eye" cx="15.5" cy="-1.5" r="1.7"/><path class="b-mouth" d="M11.5,1.8 q1.5,1.6 3,0"/>' +
       '<circle class="b-wheel" cx="-10" cy="7" r="4"/><circle class="b-wheel" cx="10" cy="7" r="4"/></g>';
   }
   function routeSvg(filled, at, star) {
@@ -1441,12 +1522,12 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
 
   /* ---------- 문제 화면 ---------- */
   /* 소문제마다 색을 달리해 ①②③이 서로 다른 문제로 보이게 한다(진행 막대, 문제 카드, 내 풀이에 같은 색) */
-  var SC = ["#0F6B78", "#D2541B", "#1B7F4A", "#7A4FB0", "#B07A00", "#B0336B"];
+  var SC = ["#7B6AF0", "#F2578E", "#1FA67F", "#E89212", "#3E9BE0", "#B565E0"];
   function sc(k) { return "--sc:" + SC[k % SC.length]; }
   function stripMark(t) { return String(t || "").replace(/^[①-⑩]\s*/, ""); }
   function logHtml(s, markNew, p) {
     return s.log.map(function (l, k) {
-      var body = l.k === "m" ? M(l.v) : l.v, cap = p && p.steps[k] ? '<small class="cap">' + stripMark(p.steps[k].p) + "</small>" : "";
+      var body = l.k === "m" ? MX(l.v) : l.v, cap = p && p.steps[k] ? '<small class="cap">' + stripMark(p.steps[k].p) + "</small>" : "";
       return '<div class="logline' + (markNew && k === s.log.length - 1 ? " new" : "") + '" style="' + sc(k) + '"><i>' + MARK[k] + "</i><div>" + cap + "<div>" + body + "</div></div></div>";
     }).join("");
   }
@@ -1504,7 +1585,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
           return '<button class="opt' + (step.o[i].indexOf("T:") === 0 ? " t" : "") + (w ? " wrong" : "") + '" data-lockable data-opt="' + i + '"' + (w ? ' data-off="1" disabled' : "") + ">" + optHtml(step.o[i]) + "</button>";
         }).join("") + "</div>";
       } else {
-        if (step.show) right += '<div class="formula">' + M(step.show.replace(/\((가|나|다)\)/g, "\\boxed{\\text{($1)}}")) + "</div>";
+        if (step.show) right += '<div class="formula">' + MX(step.show.replace(/\((가|나|다)\)/g, "\\boxed{\\text{($1)}}")) + "</div>";
         right += '<div class="fields' + (step.show ? " few" : "") + '">' + step.f.map(function (f, i) {
           var cls = ui.ok[i] ? " ok" : ui.no[i] ? " no" : i === ui.active ? " active" : "";
           return '<button class="field' + cls + '" data-field="' + i + '"><span>' + M(f[0] + " =") + '</span><span class="val">' + esc(ui.vals[i] || "") + "</span></button>";
@@ -1714,7 +1795,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
             lastK = -1; return;
           }
           var p = view(bp, e.ver != null ? e.ver : a.v), step = p.steps[e.k]; if (!step) return;
-          if (e.k !== lastK || e.ver !== lastVer) body += '<div class="ans-q" style="' + sc(e.k) + '"><i>' + MARK[e.k] + "</i>" + stripMark(step.p) + "</div>";
+          if (e.k !== lastK || e.ver !== lastVer) body += '<div class="ans-q" style="' + sc(e.k) + '"><i>' + MARK[e.k] + "</i><span>" + stripMark(step.p) + "</span></div>";
           lastK = e.k; lastVer = e.ver;
           var line, tag = "";
           if (e.o != null) {
@@ -1724,12 +1805,12 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
             line = step.f.map(function (f, i) {
               var v = (e.v || [])[i], good = same(v, f[1]), tr = f[2] || {};
               if (!good && !tag) Object.keys(tr).forEach(function (key) { if (!tag && same(v, key)) tag = tr[key][0]; });
-              return '<span class="' + (good ? "" : "bad") + '">' + M(f[0] + "=" + (parse(v) ? texNum(v) : "\\text{" + esc(v || "?") + "}")) + "</span>";
+              return '<span class="mpc ' + (good ? "" : "bad") + '">' + M(f[0] + "=" + (parse(v) ? texNum(v) : "\\text{" + esc(v || "?") + "}")) + "</span>";
             }).join(" &nbsp; ");
           }
           body += '<div class="ans-a ' + (e.ok ? "ok" : "no") + '"><b>' + (e.ok ? "✓" : "✗") + "</b><div>" + line + (tag ? ' <span class="tag">' + esc(MIS[tag] || tag) + "</span>" : "") + "</div></div>";
         });
-        if (!ans.length && a.l) a.l.forEach(function (v, k) { body += '<div class="ans-a ok"><b>✓</b><div>' + MARK[k] + " " + M(v) + "</div></div>"; });
+        if (!ans.length && a.l) a.l.forEach(function (v, k) { body += '<div class="ans-a ok"><b>✓</b><div>' + MARK[k] + " " + MX(v) + "</div></div>"; });
         var wrong = ans.filter(function (e) { return !e.ok && !e.r; }).length;
         h += '<details class="ans-card"' + (wrong ? " open" : "") + "><summary><b>" + c.name + " · " + esc(bp.road) + '</b><span class="badge' + (a.d ? " ok" : "") + '">' + (a.d ? "완료" : "푸는 중") + "</span>" +
           (wrong ? '<span class="badge">틀린 답 ' + wrong + "번</span>" : "") + (bp.variants ? "<small>숫자 " + ((a.v || 0) + 1) + "번</small>" : "") + "</summary>" +
@@ -1883,7 +1964,7 @@ window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]] }, svg: { fontCache: "glo
     var ctx = canvas.getContext("2d"), dpr = Math.min(window.devicePixelRatio || 1, 2), W, H, t0 = 0, parts = [];
     function size() { W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
     size();
-    var cols = ["#D2541B", "#0F6B78", "#F2B705", "#1B7F4A", "#FFFFFF", "#5CC4D3"];
+    var cols = ["#FF8FB1", "#9B8CFF", "#FFD58A", "#7EDCC0", "#FFFFFF", "#FFB3CE"];
     for (var i = 0; i < amount; i++) parts.push({ x: W / 2 + (Math.random() - .5) * W * .5, y: H * .45, vx: (Math.random() - .5) * 13, vy: -6 - Math.random() * 11,
       s: 6 + Math.random() * 7, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[i % cols.length] });
     function frame(t) {
